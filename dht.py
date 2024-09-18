@@ -10,7 +10,7 @@ class DHT:
         Initialize the DHT class, which represents a Distributed Hash Table. The DHT allows nodes
         to be added, retrieved, and removed. It also handles server operations using Kademlia.
         Args:
-            port (int): The port number on which the Kademlia server listens.
+            port (int): The port number on which the Kademlia server listens..
         """
         try:
             self.loop = asyncio.get_running_loop()  # Get the current running event loop, if available
