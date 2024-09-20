@@ -1,6 +1,6 @@
 import unittest
 import os
-from FileHandler import FileHandler  # Assuming the code is saved in file_handler.py
+from FileHandler import FileHandler  # Assuming the code is saved in FileHandler.py
 
 class TestFileHandler(unittest.TestCase):
     """
@@ -15,6 +15,7 @@ class TestFileHandler(unittest.TestCase):
         """
         cls.test_file = "test_file.bin"
         cls.reconstructed_file = "reconstructed_file.bin"
+        cls.node_id = "123"  # Example node ID for testing
 
         # Create a test binary file with some random content (1MB file)
         with open(cls.test_file, 'wb') as f:
@@ -42,7 +43,7 @@ class TestFileHandler(unittest.TestCase):
         Test that the file is successfully divided into parts, the original size is correctly returned,
         and that the expected number of parts are created. Also verify that the part files exist.
         """
-        part_files, original_size = self.file_handler.divide(self.test_file, n=10, k=5)
+        part_files, original_size, node_id = self.file_handler.divide(self.test_file, self.node_id, n=10, k=5)
 
         # Verify that 10 part files were created
         self.assertEqual(len(part_files), 10)
@@ -55,12 +56,15 @@ class TestFileHandler(unittest.TestCase):
         expected_size = os.path.getsize(self.test_file)
         self.assertEqual(original_size, expected_size)
 
+        # Verify that the node ID matches
+        self.assertEqual(node_id, self.node_id)
+
     def test_combine(self):
         """
         Test that the file parts can be recombined back into the original file.
         Ensure that the recombined file matches the original file in size and content.
         """
-        part_files, original_size = self.file_handler.divide(self.test_file, n=10, k=5)
+        part_files, original_size, node_id = self.file_handler.divide(self.test_file, self.node_id, n=10, k=5)
 
         # Combine the first 5 parts to reconstruct the file
         self.file_handler.combine(part_files[:5], n=10, k=5, output_file=self.reconstructed_file, original_size=original_size)
@@ -82,7 +86,7 @@ class TestFileHandler(unittest.TestCase):
         Test that attempting to combine fewer parts than required (less than k) fails gracefully.
         Ensure that an exception is raised when there aren't enough parts to combine the file.
         """
-        part_files, original_size = self.file_handler.divide(self.test_file, n=10, k=5)
+        part_files, original_size, node_id = self.file_handler.divide(self.test_file, self.node_id, n=10, k=5)
 
         # Attempt to combine only 3 parts (which is less than k)
         with self.assertRaises(Exception):
@@ -100,7 +104,7 @@ class TestFileHandler(unittest.TestCase):
             f.write(os.urandom(1024 * 1024 + 512 * 1024))  # Create a 1.5MB test file
 
         # Divide the file
-        part_files, original_size = self.file_handler.divide(variable_size_file, n=15, k=10)
+        part_files, original_size, node_id = self.file_handler.divide(variable_size_file, self.node_id, n=15, k=10)
 
         # Combine the first 10 parts to reconstruct the file
         reconstructed_variable_file = "reconstructed_variable_size_file.bin"
@@ -124,6 +128,20 @@ class TestFileHandler(unittest.TestCase):
         for part_file in part_files:
             if os.path.exists(part_file):
                 os.remove(part_file)
+
+    def test_node_id_in_part_files(self):
+        """
+        Test that the NODE_ID is correctly included in the part file names and verify
+        that all part files contain the NODE_ID as part of their file names.
+        """
+        part_files, _, node_id = self.file_handler.divide(self.test_file, self.node_id, n=10, k=5)
+
+        # Check that all part file names include the NODE_ID
+        for part_file in part_files:
+            self.assertIn(self.node_id, part_file)  # Assert that node ID is part of the file name
+
+        # Verify that the node ID returned is the same as the one used in the divide function
+        self.assertEqual(node_id, self.node_id)
 
 
 if __name__ == "__main__":

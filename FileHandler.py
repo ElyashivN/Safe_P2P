@@ -8,7 +8,7 @@ class FileHandler:
     using Reed-Solomon error correction through the Zfec library.
     """
 
-    def divide(self, file_path, n=2000, k=1000):
+    def divide(self, file_path, NODE_ID, n=2000, k=1000):
         """
         Divide any type of file into exactly k parts using Reed-Solomon (RS) error correction.
         This method works with binary data, so it can handle text files, binary files,
@@ -16,11 +16,13 @@ class FileHandler:
 
         Args:
             file_path (str): Path to the input file to be divided.
+            NODE_ID (str): The ID of the node to include in the subfile names.
             n (int): Total number of parts to divide the file into.
             k (int): Minimum number of parts required to reconstruct the file.
 
         Returns:
-            Tuple[List[str], int]: A tuple containing the list of file part filenames and the size of the original file.
+            Tuple[List[str], int, str]: A tuple containing the list of file part filenames,
+            the size of the original file, and the NODE_ID.
         """
         # Read the file in binary mode
         with open(file_path, 'rb') as f:
@@ -49,12 +51,13 @@ class FileHandler:
         part_files = []
         file_name = os.path.basename(file_path)
         for i, part in enumerate(parts):
-            part_filename = f"{file_name}.part{i}"
+            # Unique file name based on original file name, part number, and NODE_ID
+            part_filename = f"{file_name}_part{i}_node{NODE_ID}"
             with open(part_filename, 'wb') as part_file:  # Write in binary mode
                 part_file.write(part)
             part_files.append(part_filename)
 
-        return part_files, original_size  # Return the list of file parts and the original file size
+        return part_files, original_size, NODE_ID  # Return the list of file parts, the original file size, and NODE_ID
 
     def combine(self, part_files, n, k, output_file, original_size):
         """
@@ -94,6 +97,3 @@ class FileHandler:
         # Write the original file to disk in binary mode
         with open(output_file, 'wb') as output:
             output.write(original_data)
-
-
-
