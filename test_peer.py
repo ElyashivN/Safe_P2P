@@ -22,6 +22,7 @@ class TestPeerFileTransfer(unittest.TestCase):
         generate_random_file(cls.test_file_2, 2)  # 2 MB
         generate_random_file(cls.large_test_file, 10)  # 10 MB
 
+
     @classmethod
     def tearDownClass(cls):
         # Stop any running peers
@@ -58,13 +59,16 @@ class TestPeerFileTransfer(unittest.TestCase):
         received_file = f"2_received_{self.test_file_1}"
         try:
             # Ensure 'test_file_1' exists
+            if os.path.exists(self.test_file_1):
+                print("exist already")
+                print("here: "+ str(os.listdir(self.test_file_1)))
             if not os.path.exists(self.test_file_1):
                 generate_random_file(self.test_file_1, 1)  # 1 MB
 
             self.peer1 = self.run_peer(1, 5000)
             self.peer2 = self.run_peer(2, 5001)
             self.peer1.send(self.test_file_1, 5001)
-            time.sleep(2)  # Wait for transfer to complete
+            time.sleep(5)  # Wait for transfer to complete
 
             # Verify the file was received
             self.assertTrue(os.path.exists(received_file), f"{received_file} should exist after transfer")
@@ -76,8 +80,8 @@ class TestPeerFileTransfer(unittest.TestCase):
                 os.remove(received_file)
 
     def test_simultaneous_transfers(self):
-        self.peer1 = self.run_peer(1, 5000)
-        self.peer2 = self.run_peer(2, 5001)
+        peer1 = self.run_peer(1, 5000)
+        peer2 = self.run_peer(2, 5001)
 
         def run_peer_test(peer_id, port, target_port, file_to_send, times=1):
             peer = Peer(peer_id=peer_id, port=port)
@@ -99,8 +103,8 @@ class TestPeerFileTransfer(unittest.TestCase):
         # Verify file was received multiple times
         received_file = f"2_received_{self.test_file_1}"
         self.assertTrue(os.path.exists(received_file), f"{received_file} should exist after transfer")
-        self.peer1.stop()
-        self.peer2.stop()
+        peer1.stop()
+        peer2.stop()
         if os.path.exists(received_file):
             os.remove(received_file)
 
