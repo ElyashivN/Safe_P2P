@@ -5,6 +5,9 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 
+import config
+from spacePIR import SpacePIR
+
 # Constants for the peer-to-peer system
 BUFFER_SIZE = 1024
 
@@ -31,7 +34,7 @@ class Peer:
         self._stop_event = threading.Event()
         self.executor = ThreadPoolExecutor(max_workers=5)
         self._listener_thread = None
-
+        self.spacePIR = SpacePIR()
     def send_file(self, file_path, target_port):
         try:
             file_size = os.path.getsize(file_path)
@@ -120,9 +123,9 @@ class Peer:
             # First, receive the message type
             message_type = client_sock.recv(10).decode().strip()
 
-            if message_type == 'SEND_FILE':
+            if message_type == config.SEND_FILE:
                 self.receive_file(client_sock)
-            elif message_type == 'REQUEST_FILE':
+            elif message_type == config.REQUEST_FILE:
                 self.handle_request(client_sock)
             else:
                 print(f"Unknown message type: {message_type}")
@@ -132,37 +135,34 @@ class Peer:
             client_sock.close()
 
     def handle_request(self, client_sock):
+        """
+        handle request to send a file to the peer.
+        :param client_sock: the client sock
+        :return: nothing
+        """
         try:
             # Receive the requested file name
             requested_file_name = client_sock.recv(256).decode().strip('\x00').strip()
-            # Check if the file exists
-            if os.path.exists(requested_file_name):
-                print(f"File '{requested_file_name}' found. Sending file.")
-                # Send 'SEND_FILE' message type
-                client_sock.sendall('SEND_FILE'.ljust(10).encode())
+            # Retrieve the file using SpacePIR
+            file_obj, file_size = self.spacePIR.get(requested_file_name)
+            client_sock.sendall(config.SEND_FILE.ljust(10).encode())
 
-                # Send file metadata
-                file_size = os.path.getsize(requested_file_name)
-                file_name = os.path.basename(requested_file_name)
-                client_sock.sendall(struct.pack('256sQ', file_name.encode(), file_size))
+            # Send file metadata
+            file_name = os.path.basename(requested_file_name)
+            client_sock.sendall(struct.pack('256sQ', file_name.encode(), file_size))
 
-                # Send file content
-                with open(requested_file_name, 'rb') as f:
-                    while True:
-                        chunk = f.read(BUFFER_SIZE)
-                        if not chunk:
-                            break
-                        client_sock.sendall(chunk)
-                print(f"File '{requested_file_name}' sent in response to request.")
-            else:
-                # Send a message indicating file not found
-                print(f"File '{requested_file_name}' not found.")
-                client_sock.sendall('FILE_NOT_FOUND'.ljust(10).encode())
+            # Send file content
+            with file_obj as f:
+                while True:
+                    chunk = f.read(BUFFER_SIZE)
+                    if not chunk:
+                        break
+                    client_sock.sendall(chunk)
+            print(f"File sent in response to request.")
         except Exception as e:
             print(f"Error handling file request: {e}")
         finally:
             client_sock.close()
-
     def send(self, file_path, target_port):
         self.executor.submit(self.send_file, file_path, target_port)
 
@@ -172,23 +172,10 @@ class Peer:
             sock.connect((self.host, target_port))
 
             # Send message type
-            sock.sendall('REQUEST_FILE'.ljust(10).encode())
+            sock.sendall(config.REQUEST_FILE.ljust(10).encode())
 
             # Send the requested file name
             sock.sendall(file_name.ljust(256).encode())
-
-            # Now, wait for response
-            response = sock.recv(10).decode().strip()
-            if response == 'SEND_FILE':
-                # Proceed to receive the file
-                print(f"Receiving file '{file_name}' from peer on port {target_port}.")
-                self.receive_file(sock)
-            elif response == 'FILE_NOT_FOUND':
-                print(f"File '{file_name}' not found on peer {target_port}.")
-                sock.close()
-            else:
-                print(f"Unknown response: {response}")
-                sock.close()
 
         except Exception as e:
             print(f"Error requesting file: {e}")

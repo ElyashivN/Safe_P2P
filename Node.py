@@ -17,7 +17,6 @@ class Node(Peer):
             self.privateKey = private_key
             self.publicKey = private_key.public_key()
         self.DHT = DHT(port)
-        self.spacePIR = SpacePIR()
         self.fileHandler = FileHandler()
         self.host = host
         self.port = port
