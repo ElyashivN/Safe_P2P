@@ -47,7 +47,8 @@ class FileHandler:
         # Encode the file blocks into n parts with error correction
         parts = encoder.encode(file_blocks)
 
-        # Save each part to a file with a unique name
+        # Save each part to a file with a unique name todo he needs to return the file not to write down the subfiles
+        #  somewhere! is this done because file to big to return?
         part_files = []
         file_name = os.path.basename(file_path)
         for i, part in enumerate(parts):
