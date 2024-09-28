@@ -1,11 +1,41 @@
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
+import base64
 
 class Encryption:
     def __init__(self):
         pass
 
+    @staticmethod
+    def encrypt(key, data):
+        """
+        Encrypt data using AES-GCM.
+
+        :param data: Data to encrypt (bytes).
+        :return: Encrypted data encoded in base64 (str).
+        """
+        cipher = AES.new(key, AES.MODE_GCM)
+        ciphertext, tag = cipher.encrypt_and_digest(data)
+        encrypted = cipher.nonce + tag + ciphertext
+        return base64.b64encode(encrypted).decode('utf-8')
+
+    @staticmethod
+    def decrypt(key, encrypted_data):
+        """
+        Decrypt data using AES-GCM.
+
+        :param encrypted_data: Encrypted data encoded in base64 (str).
+        :return: Decrypted data (bytes).
+        """
+        raw_data = base64.b64decode(encrypted_data)
+        nonce, tag, ciphertext = raw_data[:16], raw_data[16:32], raw_data[32:]
+        cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+        try:
+            return cipher.decrypt_and_verify(ciphertext, tag)
+        except ValueError:
+            raise ValueError("Incorrect decryption")
     @staticmethod
     def generatePublicPrivateKeys():
         # Generate private key

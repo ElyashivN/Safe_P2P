@@ -69,6 +69,7 @@ class Node(Peer):
         subfiles, original_size, _ = self.fileHandler.divide(file_path,self.peer_id,n,k)
         for i, node in enumerate(self.DHT.get_dht()):
             self.ask_upload(subfiles[i], node[config.PORT])
+            #wait then if self.recieve_uploaded_succes(node[config.PORT])) continue else more
             if i >= n:
                 # if we ended up sending all the subfiles.
                 break

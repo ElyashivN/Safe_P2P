@@ -7,5 +7,6 @@ REQUEST_UPLOAD = "request_upload"
 ERROR_UPLOAD = "can't upload a file"
 SEND_FILE = "send_file"
 UPLOADED_SUCCESS = "uploaded successfully"
+UPLOADED_DENIED = "UPLOAD_DENIED"
 BUFFER_SIZE = 1024
 SUBFILE_SIZE = 1024 * 1024

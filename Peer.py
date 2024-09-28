@@ -67,6 +67,14 @@ class Peer:
             print(f"Error sending file: {e}")
         finally:
             sock.close()
+    def recieve_uploaded_succes(self, client_sock):
+        suc = client_sock.recv(struct.calcsize('256sQ'))
+        if suc == config.UPLOADED_SUCCESS:
+            return True
+        if suc == config.UPLOADED_DENIED:
+            return False
+        else:
+            raise EnvironmentError("Failed to uploadtoPEER")
 
     def receive_file(self, client_sock):
         """
@@ -152,7 +160,7 @@ class Peer:
                     self.receive_file(client_sock)
                     client_sock.send(config.UPLOADED_SUCCESS)
                 else:
-                    client_sock.send(config.ERROR_UPLOAD)
+                    client_sock.send(config.UPLOADED_DENIED)
 
             elif message_type == config.REQUEST_FILE:
                 self.handle_request(client_sock)
@@ -240,6 +248,8 @@ class Peer:
             print(f"Error requesting file: {e}")
             sock.close()
 
+
+
     def stop(self):
         """
         safely stop the listener thread and the senders threadpool
@@ -250,3 +260,4 @@ class Peer:
             self._listener_thread.join()
         self.executor.shutdown(wait=True)
         print(f"Peer {self.peer_id} stopped.")
+
