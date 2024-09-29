@@ -28,7 +28,7 @@ class DHT:
 
         self._dht = {}  # Dictionary to keep track of local node information
 
-    async def get_and_add_node(self, port, node_id, socket):
+    async def get_and_add_node(self, port, node_id, host):
         """
         Add a node to the DHT, but do not overwrite existing nodes with the same ID. If the node already exists,
         return the current DHT without changes.
@@ -36,17 +36,17 @@ class DHT:
         Args:
             port (int): The port number of the node.
             node_id (str): The unique identifier for the node.
-            socket (str): The socket address (IP and port) of the node.
+            host (str): The host address (IP) of the node.
 
         Returns:
             dict: A copy of the updated DHT.
         """
         if node_id in self._dht:
             return self.get_dht()  # Return the current DHT without adding the node if it already exists
-        await self._add_node(port, node_id, socket)  # Add the node if it does not exist
+        await self._add_node(port, node_id, host)  # Add the node if it does not exist
         return self.get_dht()  # Return the updated DHT
 
-    async def _add_node(self, port, node_id, socket):
+    async def _add_node(self, port, node_id, host):
         """
         Add a node to both the local DHT and the Kademlia server. This method handles the creation of
         node metadata (such as timestamps) and ensures the data is serialized for storage in Kademlia.
@@ -54,12 +54,12 @@ class DHT:
         Args:
             port (int): The port number of the node.
             node_id (str): The unique identifier for the node.
-            socket (str): The socket address (IP and port) of the node.
+            host (str): The host IP of the node.
         """
         current_time = datetime.now()  # Capture the current time for timestamps
         node_data = {
             config.PORT: port,
-            config.SOCKET: socket,
+            config.HOST: host,
             config.UPLOAD_TIME: current_time.isoformat(),  # Timestamp when the node was added
             config.LAST_TIME: current_time.isoformat()  # Timestamp of the last retrieval
         }

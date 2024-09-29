@@ -1,7 +1,6 @@
 import os
 import base64
 import pickle
-
 from encryption import Encryption
 
 
@@ -19,15 +18,29 @@ class SpacePIR:
         """
         self.is_allow_upload = True
         self.space_capacity = space_capacity
-        self.key = key
+        self.key = key #todo key needs to be in Node
         self.storage_path = storage_path
-        self.files = {}  # Dictionary to store encrypted filenames and data
+        self.files = {}  # set to store encrypted filenames
         self._load_storage()
 
     def change_capacity(self, capacity):
-        if capacity > len(self.files):
-            raise ValueError('Capacity must be less than the number of files, delete some')
+        if capacity < len(self.files):
+            raise ValueError('Capacity must be more than the number of files, delete some')
         self.space_capacity = capacity
+    def is_capacity_reached(self):
+        return self.space_capacity <= len(self.files)
+    def turn_off_upload(self):
+        """
+        turn off the upload. doesn't effect uploads already in progress
+        :return: none
+        """
+        is_allow_upload = False
+    def turn_on_upload(self):
+        """
+        turn on the upload.
+        :return: none
+        """
+        is_allow_upload = True
 
 
 
@@ -59,7 +72,7 @@ class SpacePIR:
             print(f"Error saving storage: {e}")
 
     # --- Public Methods ---
-    def add(self, filename,key, binary_data):
+    def add(self, filename, binary_data):
         """
         Add a file to the SpacePIR storage privately.
 

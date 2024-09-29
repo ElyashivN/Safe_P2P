@@ -3,7 +3,6 @@ import socket
 import struct
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from PIL import Image
 
 import config
 from spacePIR import SpacePIR
@@ -27,6 +26,12 @@ class Peer:
     master class that is responsible for all communication related tasks
     """
     def __init__(self, peer_id, host='127.0.0.1', port=5000):
+        """
+        initiate the Peer class
+        :param peer_id: id for the peer
+        :param host: host of the peer(IP)
+        :param port: the port of the peer to listen to
+        """
         self.peer_id = peer_id
         self.host = host
         self.port = port
@@ -34,7 +39,9 @@ class Peer:
         self.executor = ThreadPoolExecutor(max_workers=5)
         self._listener_thread = None
         self.spacePIR = SpacePIR()
-    def send_file(self, file_path, target_port):
+        self._upload_lock = threading.Lock()  # Specific lock for SpacePIR uploads to prevent concurrent uploads
+
+    def send_file(self, file_obj, sock):
         """
         send the file
         :param file_path: path to the file
@@ -42,39 +49,48 @@ class Peer:
         :return: nothing
         """
         try:
-            file_size = os.path.getsize(file_path)
-            file_name = os.path.basename(file_path)
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((self.host, target_port))
-
-            # Send message type
-            sock.sendall('SEND_FILE'.ljust(10).encode())
-
-            # Send file metadata
-            sock.sendall(struct.pack('256sQ', file_name.encode(), file_size))
 
             # Send file content in chunks
-            with open(file_path, 'rb') as f:
+            with file_obj as f:
                 while True:
                     chunk = f.read(config.BUFFER_SIZE)
                     if not chunk:
                         break
                     sock.sendall(chunk)
 
-            print(f"File '{file_name}' sent to peer on port {target_port}.")
-
         except Exception as e:
             print(f"Error sending file: {e}")
         finally:
             sock.close()
-    def recieve_uploaded_succes(self, client_sock):
-        suc = client_sock.recv(struct.calcsize('256sQ'))
-        if suc == config.UPLOADED_SUCCESS:
+    def is_uploaded_approved(self, sock):
+        """
+        recieve a message for uploaded success
+        :param sock: the sock of the client
+        :return: true if the message was approved, false if client denied, raise error if didnt get any message
+        """
+        # establish a socket with the port
+        suc = sock.recv(struct.calcsize('256sQ'))
+        if suc == config.UPLOAD_APPROVED:
             return True
         if suc == config.UPLOADED_DENIED:
             return False
         else:
-            raise EnvironmentError("Failed to uploadtoPEER")
+            raise EnvironmentError("Failed to upload to PEER")
+    def is_uploaded_success(self, sock):
+        """
+        recieve a message for uploaded success
+        :param sock: the sock of the client
+        :return: true if the message was approved, false if client denied, raise error if didnt get any message
+        """
+        # establish a socket with the port
+        suc = sock.recv(struct.calcsize('256sQ'))
+        if suc == config.UPLOADED_SUCCESS:
+            return True
+        if suc == config.UPLOADED_FAILED:
+            return False
+        else:
+            raise EnvironmentError("something went wrong")
+
 
     def receive_file(self, client_sock):
         """
@@ -84,39 +100,42 @@ class Peer:
         """
         try:
             # Read file metadata
-            packed_file_info = client_sock.recv(struct.calcsize('256sQ'))
-            file_name, file_size = struct.unpack('256sQ', packed_file_info)
+            file_name = client_sock.recv(struct.calcsize('256sQ'))
             file_name = file_name.decode().strip('\x00')
-            file_name = f"{self.peer_id}_received_{file_name}"
-            self.spacePIR.add_subfile(file_name, file_size)
+            # file_name = f"{self.peer_id}_received_{file_name}"
             total_received = 0
 
             with open(file_name, 'wb') as f:
-                while total_received < file_size:
+                while total_received < config.SUBFILE_SIZE:
                     chunk = client_sock.recv(config.BUFFER_SIZE)
                     if not chunk:
+                        print("file is smaller than 1MB")
                         break
                     f.write(chunk)
                     total_received += len(chunk)
-
-            if total_received != file_size:
-                print(f"Warning: File size mismatch for '{file_name}'")
-
-            print(f"File '{file_name}' received successfully.")
-
-            # For debug purposes (optional)
-            if file_name.lower().endswith(('.jpg', '.jpeg', '.png')):
-                try:
-                    image = Image.open(file_name)
-                    image.show()
-                except Exception as e:
-                    print(f"Error opening image file: {e}")
+            client_sock.close()
+            return file_name, total_received
 
         except Exception as e:
             print(f"Error receiving file: {e}")
-        finally:
             client_sock.close()
-
+            return None, None
+    def recieve_obj(self, sock):
+        """
+        recieve an object. as opposed to recieve_file, stored in RAM
+        :param sock: the sock to recieve from
+        :return: file
+        """
+        total_received = 0
+        file = ""
+        while total_received < config.SUBFILE_SIZE:
+            chunk = sock.recv(config.BUFFER_SIZE)
+            if not chunk:
+                print("file is smaller than 1MB")
+                break
+            file += chunk
+            total_received += len(chunk)
+        return file
     def start_listening(self):
         """
         start a listener thread
@@ -140,113 +159,87 @@ class Peer:
                 s.settimeout(1)
                 try:
                     conn, addr = s.accept()
-                    threading.Thread(target=self.handle_client, args=(conn,)).start()
+                    threading.Thread(target=self.handle_peer, args=(conn,)).start()
                 except socket.timeout:
                     continue
             print(f"Peer {self.peer_id} stopped listening.")
 
-    def handle_client(self, client_sock):
+    def connect(self, host, port):
         """
-        handle clients (either asks or recieve a file)
+        a simple function creating a socket to connect us to
+        :param host: the host of the peer(IP)
+        :param port: the port
+        :return: sock
+        """
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((host, port))
+        return sock
+    def handle_peer(self, client_sock):
+        """
+        handle peers (either asks or recieve a file)
         :param client_sock: client socket object
         :return: nothing
         """
         try:
             # First, receive the message type
             message_type = client_sock.recv(10).decode().strip()
-
             if message_type == config.REQUEST_UPLOAD:
-                if self.spacePIR.allow_upload:
-                    self.receive_file(client_sock)
-                    client_sock.send(config.UPLOADED_SUCCESS)
-                else:
-                    client_sock.send(config.UPLOADED_DENIED)
-
+                self.handle_upload_request(client_sock)
             elif message_type == config.REQUEST_FILE:
-                self.handle_request(client_sock)
+                self.handle_get_request(client_sock)
             else:
                 print(f"Unknown message type: {message_type}")
-                client_sock.close()
+
         except Exception as e:
             print(f"Error handling client: {e}")
+        finally:
             client_sock.close()
+    def handle_upload_request(self, sock):
+        """
+        handle an upload request and send appropriate messages
+        :param sock: the sock
+        :return:
+        """
+        if self.spacePIR.is_allow_upload:
+            with self._upload_lock:
+                sock.send(config.UPLOAD_APPROVED)
+                try:
+                    # stop uploading before reaching to recieve file
+                    file_name, file = self.receive_file(sock)
+                    self.spacePIR.add(file_name, file)
+                    self.send(config.UPLOADED_SUCCESS,sock)
+                except Exception as e:
+                    print(f"Error uploading file: {e}")
+                    self.send(config.UPLOADED_FAILED,sock)
+        else:
+            sock.send(config.UPLOADED_DENIED)
 
-    # def handle_upload(self, client_sock):
-    #     if self.spacePIR.allow_upload:
-    #         self.receive_file(client_sock)
 
-    def handle_request(self, client_sock):
+    def handle_get_request(self, sock):
         """
         handle request to send a file to the peer.
-        :param client_sock: the client sock
+        :param sock: the client sock
         :return: nothing
         """
         try:
-            # Receive the requested file name
-            requested_file_name = client_sock.recv(256).decode().strip('\x00').strip()
-            # Retrieve the file using SpacePIR
-            file_obj, file_size = self.spacePIR.get(requested_file_name)
-            client_sock.sendall(config.SEND_FILE.ljust(10).encode())
-
-            # Send file metadata
-            file_name = os.path.basename(requested_file_name)
-            client_sock.sendall(struct.pack('256sQ', file_name.encode(), file_size))
-
-            # Send file content
-            with file_obj as f:
-                while True:
-                    chunk = f.read(config.BUFFER_SIZE)
-                    if not chunk:
-                        break
-                    client_sock.sendall(chunk)
-            print(f"File sent in response to request.")
+            # Receive the requested file polynom for the inner product homomorphic function
+            list_of_files = self.spacePIR.get_file_names()
+            self.send(list_of_files, sock)# send the list of the file so that the node can create the correct poly
+            poly = sock.recv(256).decode().strip('\x00').strip()
+            file_obj = self.spacePIR.get(poly)
+            self.send(file_obj, sock)
         except Exception as e:
-            print(f"Error handling file request: {e}")
-        finally:
-            client_sock.close()
-    def send(self, file_path, target_port):
+            print(f"Error handling get: {e}")
+
+    def send(self, file_obj, client_sock):
         """
         send a file through the thread pool
         :param file_path: path to the file
         :param target_port: target port
         :return: nothing
         """
-        self.executor.submit(self.send_file, file_path, target_port)
+        self.executor.submit(self.send_file, file_obj, client_sock)
 
-    def ask_download(self, file_name, target_port):
-        """
-        ask for a filename and target port
-        :param file_name: the file name
-        :param target_port: the target port
-        :return:nothing
-        """
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((self.host, target_port))
-
-            # Send message type
-            sock.sendall(config.REQUEST_FILE.ljust(10).encode())
-
-            # Send the requested file name
-            sock.sendall(file_name.ljust(256).encode())
-
-        except Exception as e:
-            print(f"Error requesting file: {e}")
-            sock.close()
-    def ask_upload(self, file_name, target_port):
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((self.host, target_port))
-
-            # Send message type
-            sock.sendall(config.REQUEST_UPLOAD.ljust(10).encode())
-
-            # Send the requested file name
-            sock.sendall(file_name.ljust(256).encode())
-
-        except Exception as e:
-            print(f"Error requesting file: {e}")
-            sock.close()
 
 
 
