@@ -3,13 +3,19 @@ import numpy as np
 
 
 class SpacePIR:
-    def __init__(self, max_capacity, base_directory="path"):
+    def __init__(self, max_capacity=1000, base_directory="path"):
         # Initialize an empty list to hold the file names and their storage locations
         self.space = []  # Space should store (filename, path) tuples
         self.base_directory = base_directory  # Allow dynamic base directory
         self.max_capacity = max_capacity
         self.number_file_uploaded = 0
-        self.allowed_upload = True
+        self.is_allow_upload = True
+
+    def change_capacity(self,new_capacity):
+        if new_capacity > len(self.space):
+            self.max_capacity = new_capacity
+            return True
+        return False
 
     def get_file_names(self):
         """
@@ -18,13 +24,13 @@ class SpacePIR:
         return [file_name for file_name, _ in self.space]
 
     def turn_off_upload(self):
-        self.allowed_upload = False
+        self.is_allow_upload = False
 
     def turn_on_upload(self):
-        self.allowed_upload = True
+        self.is_allow_upload = True
 
     def is_upload_allowed(self):
-        return self.allowed_upload
+        return self.is_allow_upload
 
     def add(self, file_name, file_content=None):
         """
@@ -32,7 +38,7 @@ class SpacePIR:
         The file content must be in binary format (`bytes` or `bytearray`).
         `file_content` can be `None` to create an empty file.
         """
-        if self.number_file_uploaded < self.max_capacity and self.allowed_upload:
+        if self.number_file_uploaded < self.max_capacity and self.is_allow_upload:
             # Define the storage path for this file using the base directory
             file_path = os.path.join(self.base_directory, file_name)
             # Check if the file is already in the space list
