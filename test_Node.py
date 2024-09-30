@@ -47,10 +47,12 @@ class TestNodeMessaging(unittest.TestCase):
         print("Sending message from Node1 to Node2...")
         test_message = "Hello from Node1"
         self.node1.send_message(test_message, sock)
-
         # Receive the echoed message on Node1
         try:
             response = sock.recv(1024).decode().strip()
+            while response == "":
+                self.node1.send_message(test_message, sock)
+                response = sock.recv(1024).decode().strip()
             print(f"Node1 received: {response}")
         except Exception as e:
             print(f"Error receiving message: {e}")

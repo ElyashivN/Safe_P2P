@@ -146,18 +146,26 @@ class Peer:
         """
         Listener thread function representing a listener.
         """
+        print(f"Peer {self.peer_id} entering listener function...")
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind((self.host, self.port))
             s.listen(5)
             print(f"Peer {self.peer_id} listening on {self.host}:{self.port}...")
+
             while not self._stop_event.is_set():
-                s.settimeout(1)
+                s.settimeout(2)  # Set a small timeout to allow regular checking
                 try:
-                    conn, addr = s.accept()
+                    print(f"Peer {self.peer_id} waiting for connections...")
+                    conn, addr = s.accept()  # Accept a new connection
+                    print(f"Peer {self.peer_id} accepted connection from {addr}")
                     threading.Thread(target=self.handle_peer, args=(conn,)).start()
                 except socket.timeout:
+                    # Timeout indicates no incoming connections; continue listening
                     continue
+                except Exception as e:
+                    print(f"Error in listener for Peer {self.peer_id}: {e}")
+                    break
             print(f"Peer {self.peer_id} stopped listening.")
 
     def connect(self, host, port):
@@ -168,23 +176,26 @@ class Peer:
         sock.connect((host, port))
         return sock
 
-    def handle_peer(self, client_sock):
+    def handle_peer(self, sock):
         """
         Handle incoming connections from peers.
         """
         try:
             # First, receive the message type
-            message_type = client_sock.recv(1024).decode().strip()
+            message_type = sock.recv(1024).decode().strip()
             if message_type == config.REQUEST_UPLOAD:
-                self.handle_upload_request(client_sock)
+                self.handle_upload_request(sock)
             elif message_type == config.REQUEST_FILE:
-                self.handle_get_request(client_sock)
+                self.handle_get_request(sock)
+            elif message_type == "":
+                print(f"Error in handle_peer: for some reason is empty ")
             else:
+                self.send_message(message_type,sock)
                 print(f"Unknown message type: {message_type}")
         except Exception as e:
             print(f"Error handling client: {e}")
         finally:
-            client_sock.close()
+            sock.close()
 
     def handle_upload_request(self, sock):
         """

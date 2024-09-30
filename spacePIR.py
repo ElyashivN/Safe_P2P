@@ -1,158 +1,172 @@
 import os
-import base64
-import pickle
-from encryption import Encryption
+import numpy as np
 
 
 class SpacePIR:
-    """
-    SpacePIR handles the private storage and retrieval of files using a simplified cPIR approach.
-    It encrypts file names and contents to ensure privacy during both addition and retrieval.
-    """
-    def __init__(self, key=None,space_capacity=200, storage_path='space_pir_storage.pkl'):
-        """
-        Initialize the SpacePIR instance.
-
-        :param key: Optional. A 16-byte AES key. If not provided, a new key is generated.
-        :param storage_path: Path to the file where encrypted data will be stored persistently.
-        """
+    def __init__(self, max_capacity=1000, base_directory="path"):
+        # Initialize an empty list to hold the file names and their storage locations
+        self.space = []  # Space should store (filename, path) tuples
+        self.base_directory = base_directory  # Allow dynamic base directory
+        self.max_capacity = max_capacity
+        self.number_file_uploaded = 0
         self.is_allow_upload = True
-        self.space_capacity = space_capacity
-        self.key = key #todo key needs to be in Node
-        self.storage_path = storage_path
-        self.files = {}  # set to store encrypted filenames
-        self._load_storage()
 
-    def change_capacity(self, capacity):
-        if capacity < len(self.files):
-            raise ValueError('Capacity must be more than the number of files, delete some')
-        self.space_capacity = capacity
-    def is_capacity_reached(self):
-        return self.space_capacity <= len(self.files)
+    def change_capacity(self,new_capacity):
+        if new_capacity > len(self.space):
+            self.max_capacity = new_capacity
+            return True
+        return False
+
+    def get_file_names(self):
+        """
+        Return a list of file names without the paths in the same order as stored in `space`.
+        """
+        return [file_name for file_name, _ in self.space]
+
     def turn_off_upload(self):
-        """
-        turn off the upload. doesn't effect uploads already in progress
-        :return: none
-        """
-        is_allow_upload = False
+        self.is_allow_upload = False
+
     def turn_on_upload(self):
-        """
-        turn on the upload.
-        :return: none
-        """
-        is_allow_upload = True
+        self.is_allow_upload = True
 
+    def is_upload_allowed(self):
+        return self.is_allow_upload
 
+    def add(self, file_name, file_content=None):
+        """
+        Add a file to the space and store it only if it is not already stored.
+        The file content must be in binary format (`bytes` or `bytearray`).
+        `file_content` can be `None` to create an empty file.
+        """
+        if self.number_file_uploaded < self.max_capacity and self.is_allow_upload:
+            # Define the storage path for this file using the base directory
+            file_path = os.path.join(self.base_directory, file_name)
+            # Check if the file is already in the space list
+            for name, path in self.space:
+                if name == file_name:
+                    raise ValueError(f"File '{file_name}' already stored at {path}")
+                    # Exit the function as the file is already stored
 
-    def _load_storage(self):
-        """
-        Load the encrypted storage from the storage path.
-        """
-        if os.path.exists(self.storage_path):
-            try:
-                with open(self.storage_path, 'rb') as f:
-                    self.files = pickle.load(f)
-                print(f"SpacePIR storage loaded from {self.storage_path}.")
-            except Exception as e:
-                print(f"Error loading storage: {e}")
-                self.files = {}
+            # If the file is not in the space, add it
+            self.space.append((file_name, file_path))
+            self.space.sort(key=lambda x: x[0])  # Keep the list sorted by file_name
+
+            # Ensure that the file content is in binary format, if provided
+            if file_content is None:
+                # Create an empty file
+                print(f"File '{file_name}' will be created as an empty file.")
+                file_content = b""
+            elif isinstance(file_content, str):
+                # Convert binary strings (e.g., "1101") to bytes
+                if all(c in "01" for c in file_content):
+                    file_content = int(file_content, 2).to_bytes((len(file_content) + 7) // 8, 'big')
+                else:
+                    raise ValueError("String content is not binary. Provide bytes or a valid binary string.")
+
+            # Store the file with the given byte content
+            self.store(file_path, file_content)
         else:
-            print("No existing SpacePIR storage found. Starting fresh.")
-            self.files = {}
+            print("You are not allowed to upload or you reached the maximum capacity")
 
-    def _save_storage(self):
+    def store(self, file_path, file_content):
         """
-        Save the encrypted storage to the storage path.
+        Store a single file at the given file path using binary mode.
+        All file content should be in bytes.
         """
-        try:
-            with open(self.storage_path, 'wb') as f:
-                pickle.dump(self.files, f, protocol=pickle.HIGHEST_PROTOCOL)
-            print(f"SpacePIR storage saved to {self.storage_path}.")
-        except Exception as e:
-            print(f"Error saving storage: {e}")
+        # Ensure the directory exists
+        directory = os.path.dirname(file_path)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
 
-    # --- Public Methods ---
-    def add(self, filename, binary_data):
+        # Open the file in binary mode and write the content
+        with open(file_path, 'wb') as file:
+            file.write(file_content)
+        self.number_file_uploaded += 1
+
+    def get_space(self):
         """
-        Add a file to the SpacePIR storage privately.
-
-        :param filename: Name of the file (str).
-        :param binary_data: Binary content of the file (bytes).
+        for testing purpose
         """
-        try:
-            # Encrypt the filename and data
-            encrypted_filename = Encryption.encrypt(key, filename.encode('utf-8'))
-            encrypted_data = Encryption.encrypt(key, binary_data)
+        return self.space
 
-            # Store in the dictionary
-            self.files[encrypted_filename] = encrypted_data
-            if len(self.files) >= self.space_capacity:
-                self.is_allow_upload = False
-
-            # Persist the storage
-            self._save_storage()
-
-            print(f"File '{filename}' added privately.")
-        except Exception as e:
-            print(f"Error adding file '{filename}': {e}")
-
-    def get(self, key, filename):
+    def get(self, A):
         """
-        Retrieve a file from the SpacePIR storage privately.
+        Takes a vector A, validates its size, and performs a cross product using numpy.
 
-        :param filename: Name of the file to retrieve (str).
-        :return: Binary content of the file (bytes).
-        :raises FileNotFoundError: If the file does not exist.
+        Args:
+            A (list): Vector A whose size should match the number of stored files.
+
+        Returns:
+            int: The cross product result using numpy.
         """
-        try:
-            # Encrypt the filename to search
-            encrypted_filename = Encryption.encrypt(key ,filename.encode('utf-8'))
+        # Step 1: Validate the input vector size
+        if len(A) != len(self.space):
+            raise ValueError(
+                f"Size of vector A ({len(A)}) does not match the number of stored files ({len(self.space)}).")
+        # Step 2: Create a matrix B where each row is the binary content of a file
+        B = []
+        for _, file_path in self.space:
+            with open(file_path, 'rb') as file:
+                file_content = np.frombuffer(file.read(), dtype=np.uint8)
+                B.append(file_content)
 
-            # Retrieve encrypted data
-            encrypted_data = self.files.get(encrypted_filename, None)
-            if not encrypted_data:
-                raise FileNotFoundError(f"File '{filename}' not found.")
+        # Step 3: Use numpy to calculate the cross product (A @ B)
+        B_matrix = np.array(B, dtype=object)  # Create numpy matrix with binary file contents
+        A_vector = np.array(A, dtype=np.int32)
 
-            # Decrypt the data
-            binary_data = Encryption.decrypt(key, encrypted_data)
+        # Matrix multiplication (dot product of B and A)
+        cross_product_result = np.dot(A_vector, B_matrix)
 
-            print(f"File '{filename}' retrieved privately.")
-            return binary_data
-        except FileNotFoundError as fnf:
-            print(fnf)
-            raise
-        except Exception as e:
-            print(f"Error retrieving file '{filename}': {e}")
-            raise
+        # Return the sum of the cross product results
+        return cross_product_result
 
-    def listfiles(self,key):
-        """
-        List all files in the SpacePIR storage.
 
-        :return: List of filenames (str).
-        """
-        try:
-            filenames = [Encryption.decrypt(key, base64.b64decode(enc_fname)).decode('utf-8')
-                         for enc_fname in self.files.keys()]
-            return filenames
-        except Exception as e:
-            print(f"Error listing files: {e}")
-            return []
 
-    def delete_file(self, key, filename):
-        """
-        Delete a file from the SpacePIR storage.
 
-        :param key: key of the file to delete (str).
-        :param filename: Name of the file to delete (str).
-        """
-        try:
-            encrypted_filename = Encryption.encrypt(key, filename.encode('utf-8'))
-            if encrypted_filename in self.files:
-                del self.files[encrypted_filename]
-                self._save_storage()
-                print(f"File '{filename}' deleted successfully.")
-            else:
-                print(f"File '{filename}' does not exist.")
-        except Exception as e:
-            print(f"Error deleting file '{filename}': {e}")
+    # def get(self, polynome):
+    #     """
+    #     Calculate the sum of polynomial evaluations multiplied by the corresponding binary file values.
+    #     Each file path is retrieved from the stored space in the order of the polynomial coefficients.
+    #     """
+    #     def evaluate_polynomial(coefficients, x_value):
+    #         """
+    #         Evaluates the polynomial for a given x value.
+    #         The polynomial is represented by a list of coefficients, where
+    #         coefficients[i] corresponds to the coefficient of x^i.
+    #         """
+    #         return sum(coeff * (x_value ** i) for i, coeff in enumerate(coefficients))
+    #
+    #     total_sum = 0
+    #
+    #     # Iterate over each value of x (1-based index), using each value in the polynomial as x value
+    #     for index, x_value in enumerate(range(0, len(polynome))):
+    #         # Evaluate the polynomial value
+    #         result = evaluate_polynomial(polynome, x_value)
+    #         print(result)
+    #         # Retrieve the corresponding file path from the space list at index `index`
+    #         if index < len(self.space):
+    #             file_path = self.space[index][1]
+    #         else:
+    #             raise IndexError(f"No file in space corresponds to index {index}")
+    #
+    #         # Process the binary file incrementally to calculate the integer value
+    #         file_int_value = 0
+    #         with open(file_path, 'rb') as binary_file:
+    #             # Check if the file is empty before reading
+    #             file_content = binary_file.read()
+    #             if not file_content:
+    #                 print(f"File {file_path} is empty.")  # File is empty
+    #                 file_int_value = 0
+    #             else:
+    #
+    #                 binary_file.seek(0)  # Reset the file pointer to the beginning
+    #
+    #                 # Read the binary file in chunks to construct the integer value
+    #                 while chunk := binary_file.read(1024):  # Read in chunks of 1024 bytes (adjust as needed)
+    #                     # Convert each chunk to an integer and accumulate
+    #                     chunk_value = int.from_bytes(chunk, 'big')
+    #                     file_int_value = (file_int_value << (8 * len(chunk))) + chunk_value
+    #
+    #         # Multiply the polynomial result by the large integer value from the file
+    #         total_sum += result * file_int_value
+    #     return total_sum
