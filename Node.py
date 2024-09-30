@@ -115,33 +115,45 @@ class Node(Peer):
         return False
 
 
-    def upload_to_client(self,file, port,host="127.0.0.1"):
+    def upload_to_client(self, file, port, host="127.0.0.1"):
         """
-        upload the file to one client
-        :param file: the file
-        :param port: the port we use to transfer the file
-        :param host: the host the file is on
-        :return: true if transfered the file, false otherwise
+        Upload the file to one client.
         """
-        sock = self.connect(host,port)
-        self.send(config.REQUEST_UPLOAD, sock)
-        #todo wait
-        uploaded = self.is_uploaded_approved(sock)
-        i = 0
-        while uploaded == -1 and i < Node.NUMBER_TRIES_UPLOAD:
-            #didnt get an approve or denied, try again until NUMBER_TRIES_UPLOAD
+        try:
+            sock = self.connect(host, port)
+            self.send_message(config.REQUEST_UPLOAD, sock)
+
+            # Wait for approval
             uploaded = self.is_uploaded_approved(sock)
-            i+=1
-        if uploaded == 0 or uploaded == -1:
+            i = 0
+            while uploaded == -1 and i < Node.NUMBER_TRIES_UPLOAD:
+                # Didn't get an approval or denial, try again
+                uploaded = self.is_uploaded_approved(sock)
+                i += 1
+
+            if uploaded == 0 or uploaded == -1:
+                sock.close()
+                return False
+
+            # Send the file
+            self.send_file(file, sock)
+
+            # Wait for success confirmation
+            for i in range(Node.NUMBER_TRIES_UPLOAD):
+                success = self.is_uploaded_success(sock)
+                if success == 1:
+                    sock.close()
+                    return True
+                elif success == 0 and i < Node.NUMBER_TRIES_UPLOAD - 1:
+                    # Resend the file
+                    self.send_file(file, sock)
+                else:
+                    break
+            sock.close()
             return False
-        self.send(file, sock)
-        for i in range(Node.NUMBER_TRIES_UPLOAD):
-            #tries to upload for number of tries
-            if self.is_uploaded_success(sock) == 0 and i<Node.NUMBER_TRIES_UPLOAD-1:
-                self.send(file, sock) # send again
-            if self.is_uploaded_success(sock) == 1:
-                return True
-        return False
+        except Exception as e:
+            print(f"Error uploading to client: {e}")
+            return False
 
     def download_from_client(self,name, port,number,host="127.0.0.1"):
         sock = self.connect(host,port)
