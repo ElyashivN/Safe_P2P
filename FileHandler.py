@@ -2,13 +2,16 @@ import zfec
 import os
 import math
 
+import config
+
+
 class FileHandler:
     """
     Handle file division and recombination for any file type (text, binary, images, etc.)
     using Reed-Solomon error correction through the Zfec library.
     """
 
-    def divide(self, file_path, NODE_ID, n=2000, k=1000):
+    def divide(self, file_path, NODE_ID, n=2000, block_size=config.SUBFILE_SIZE):
         """
         Divide any type of file into exactly k parts using Reed-Solomon (RS) error correction.
         This method works with binary data, so it can handle text files, binary files,
@@ -18,7 +21,7 @@ class FileHandler:
             file_path (str): Path to the input file to be divided.
             NODE_ID (str): The ID of the node to include in the subfile names.
             n (int): Total number of parts to divide the file into.
-            k (int): Minimum number of parts required to reconstruct the file.
+            block_size (int): block_size
 
         Returns:
             Tuple[List[str], int, str]: A tuple containing the list of file part filenames,
@@ -31,7 +34,7 @@ class FileHandler:
         original_size = len(file_data)  # Get the original file size
 
         # Calculate block size dynamically based on the file size and k (minimum parts)
-        block_size = math.ceil(original_size / k)
+        k = math.ceil(original_size / block_size)
 
         # Split the file into exactly k blocks
         file_blocks = [file_data[i:i + block_size] for i in range(0, len(file_data), block_size)]
@@ -47,8 +50,7 @@ class FileHandler:
         # Encode the file blocks into n parts with error correction
         parts = encoder.encode(file_blocks)
 
-        # Save each part to a file with a unique name todo he needs to return the file not to write down the subfiles
-        #  somewhere! is this done because file to big to return?
+        # Save each part to a file with a unique name
         part_files = []
         file_name = os.path.basename(file_path)
         for i, part in enumerate(parts):
@@ -58,7 +60,7 @@ class FileHandler:
                 part_file.write(part)
             part_files.append(part_filename)
 
-        return part_files, original_size, NODE_ID  # Return the list of file parts, the original file size, and NODE_ID
+        return part_files, k, NODE_ID  # Return the list of file parts, the original file size, and NODE_ID
 
     def combine(self, part_files, n, k, output_file):
         """
@@ -70,7 +72,6 @@ class FileHandler:
             n (int): Total number of parts.
             k (int): Minimum number of parts required to reconstruct the file.
             output_file (str): Path to the output file.
-            original_size (int): The original size of the file in bytes.
 
         Returns:
             None

@@ -10,18 +10,27 @@ import pickle
 
 
 def find_index(names, target):
+    """
+    function to find index of target in an ordered list
+    :param names: list of names
+    :param target: target name
+    :return: index if succedded, -1 if not found
+    """
     index = bisect.bisect_left(names, target)
     if index < len(names) and names[index] == target:
         return index
     return -1
 
 
-
 class Node(Peer):
-    NUMBER_TRIES_UPLOAD = 4 #number of tries to upload from peer, after which if still not working continue to next
-    SAFETY_CONSTANT = 1.1
+    """
+    class that handles a node in our network
+    """
+    NUMBER_TRIES_UPLOAD = 4
+    # number of tries to upload from peer, after which if still not working continue to next
+    SAFETY_CONSTANT = 1
 
-    def __init__(self, port, peer_id, host='127.0.0.1', private_key=None, path = ""):
+    def __init__(self, port, peer_id, host='127.0.0.1', private_key=None, path=""):
         super().__init__(peer_id, host, port)
         if private_key is None:
             self.publicKey, self.privateKey = Encryption.generatePublicPrivateKeys()
@@ -69,26 +78,32 @@ class Node(Peer):
     def download(self, name, n, k):
         """
         get the name
-        :param name:
-        :return:
+        :param name: name of the file
+        :param n: the number of subifiles the file has been split to
+        :param k: the number of files required to construct the file using the error correction code algorithm
+        :return: true if downloaded, false otherwise
         """
         dht = self.DHT.get_dht()
         part_files = []
         for key in dht.keys():
-            if len(part_files) >= k*Node.SAFETY_CONSTANT:
+            if len(part_files) >= k * Node.SAFETY_CONSTANT:
                 # if we reached a number of files that is enough to construct the files
-                return self.fileHandler.combine(part_files,n,k,self.path+name)
+                success = self.fileHandler.combine(part_files, n, k, self.path + name)
+                if success:
+                    for file in part_files:
+                        delete_file(file)  #delete all subfile from storage as we dont needs them
+                    return True
+                return False
             info = dht[key]
             port = info[config.PORT]
             host = info[config.HOST]
-            file_name = self.download_from_client(name, port,len(part_files), host)
+            file_name = self.download_from_peer(name, port, len(part_files), host)
             if file_name is not None:
                 part_files.append(file_name)
         #if we failed delete everything
         for file in part_files:
             delete_file(file)
         return False
-
 
     def add_DHT(self, DHT):
         return self.DHT.add_DHT(DHT)
@@ -99,25 +114,28 @@ class Node(Peer):
         :param file_path: file path
         :return:
         """
-        k = config.SUBFILE_SIZE
-        n = (os.path.getsize(file_path) * 2) / k
-        subfiles, original_size, _ = self.fileHandler.divide(file_path,self.peer_id,n,k)
+        block_size = int(config.SUBFILE_SIZE)
+        n = max(int((os.path.getsize(file_path) * 2) / block_size), 1)
+        subfiles, k, _ = self.fileHandler.divide(file_path, self.peer_id, n=n, block_size=block_size)
         dht = self.DHT.get_dht()
-        if(len(dht)<n*Node.SAFETY_CONSTANT):
+        if len(dht) < n * Node.SAFETY_CONSTANT:
             raise ValueError(config.DHT_SMALL)
         i = 0
-        for node in dht:
-            if self.upload_to_client(subfiles[i], node[config.PORT]):
-                i+=1
+        for node in dht.values():
+            if self.upload_to_peer(subfiles[i], node[config.PORT]):
+                i += 1
             if i >= n:
                 # if we ended up sending all the subfiles.
                 return True
         return False
 
-
-    def upload_to_client(self, file, port, host="127.0.0.1"):
+    def upload_to_peer(self, file, port, host="127.0.0.1"):
         """
-        Upload the file to one client.
+         Upload the file to one client.
+        :param file: the file to upload
+        :param port: port of peer
+        :param host: host of peer
+        :return: true if success, false otherwise
         """
         try:
             sock = self.connect(host, port)
@@ -144,31 +162,41 @@ class Node(Peer):
                 if success == 1:
                     sock.close()
                     return True
-                elif success == 0 and i < Node.NUMBER_TRIES_UPLOAD - 1:
+                elif i >= Node.NUMBER_TRIES_UPLOAD - 1:
+                    break
+                elif success == 0:
                     # Resend the file
                     self.send_file(file, sock)
-                else:
-                    break
             sock.close()
             return False
         except Exception as e:
             print(f"Error uploading to client: {e}")
             return False
 
-    def download_from_client(self,name, port,number,host="127.0.0.1"):
-        sock = self.connect(host,port)
-        self.send(config.REQUEST_FILE, sock)
-        list = self.recieve_obj(sock)# recieve list of all the file names
+    def download_from_peer(self, name, port, number, host="127.0.0.1"):
+        """
+        download from one peer
+        :param name: the name of the file(not given to peer)
+        :param port: the port of the peer
+        :param number: the number of the subfile
+        :param host: the host of the peer
+        :return: filename if success, None if failed
+        """
+        sock = self.connect(host, port)
+        self.send_message(config.REQUEST_FILE, sock)
+        list = self.receive_obj(sock)
+        # recieve list of all the file names
         i = find_index(list, name)
         n = len(list)
-        v = self.construct_vector(i,n)
-        self.send(v,sock)
-        obj = self.recieve_obj(sock)
+        v = self.construct_vector(i, n)
+        self.send_file(v, sock)
+        obj = self.receive_obj(sock)
+        sock.close()
         if i == -1:
             #if we don't have the file in this peer DB we want to still do the same actions to peer but return False
             return None
         decrypted_file = self.privateKey.decrypt(obj)
-        filename = self.path+name+str(number)
+        filename = self.path + name + str(number)
         with open(filename, 'wb') as handle:
             handle.write(decrypted_file)
         return filename
@@ -190,6 +218,3 @@ class Node(Peer):
         encrypted_vector = [self.publicKey.encrypt(value) for value in vector]
 
         return encrypted_vector
-
-
-

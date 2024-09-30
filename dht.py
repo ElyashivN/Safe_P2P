@@ -2,7 +2,7 @@ import asyncio
 from kademlia.network import Server
 from datetime import datetime
 import json
-import config
+
 
 class DHT:
     def __init__(self, port):
@@ -28,7 +28,7 @@ class DHT:
 
         self._dht = {}  # Dictionary to keep track of local node information
 
-    async def get_and_add_node(self, port, node_id, host):
+    async def get_and_add_node(self, port, node_id, socket):
         """
         Add a node to the DHT, but do not overwrite existing nodes with the same ID. If the node already exists,
         return the current DHT without changes.
@@ -36,17 +36,17 @@ class DHT:
         Args:
             port (int): The port number of the node.
             node_id (str): The unique identifier for the node.
-            host (str): The host address (IP) of the node.
+            socket (str): The socket address (IP and port) of the node.
 
         Returns:
             dict: A copy of the updated DHT.
         """
         if node_id in self._dht:
             return self.get_dht()  # Return the current DHT without adding the node if it already exists
-        await self._add_node(port, node_id, host)  # Add the node if it does not exist
+        await self._add_node(port, node_id, socket)  # Add the node if it does not exist
         return self.get_dht()  # Return the updated DHT
 
-    async def _add_node(self, port, node_id, host):
+    async def _add_node(self, port, node_id, socket):
         """
         Add a node to both the local DHT and the Kademlia server. This method handles the creation of
         node metadata (such as timestamps) and ensures the data is serialized for storage in Kademlia.
@@ -54,19 +54,19 @@ class DHT:
         Args:
             port (int): The port number of the node.
             node_id (str): The unique identifier for the node.
-            host (str): The host IP of the node.
+            socket (str): The socket address (IP and port) of the node.
         """
         current_time = datetime.now()  # Capture the current time for timestamps
         node_data = {
-            config.PORT: port,
-            config.HOST: host,
-            config.UPLOAD_TIME: current_time.isoformat(),  # Timestamp when the node was added
-            config.LAST_TIME: current_time.isoformat()  # Timestamp of the last retrieval
+            'port': port,
+            'socket': socket,
+            'upload_time': current_time.isoformat(),  # Timestamp when the node was added
+            'last_get': current_time.isoformat()  # Timestamp of the last retrieval
         }
         self._dht[node_id] = node_data  # Store the node data in the local DHT
 
-        # Serialize the node data to JSON for storage in the Kademlia network
-        serialized_data = json.dumps(node_data)
+        # # Serialize the node data to JSON for storage in the Kademlia network
+        # serialized_data = json.dumps(node_data)
         # await self.server.set(node_id, serialized_data)  # Store the node in the Kademlia DHT
 
     def get_dht(self):
@@ -88,18 +88,18 @@ class DHT:
         Returns:
             dict: The node data, or None if the node does not exist.
         """
-        data = self._dht[node_id]
         # serialized_data = await self.server.get(node_id)  # Retrieve the serialized node data from Kademlia
-        return data
+        return self._dht[node_id]
+        # if serialized_data is not None:
+        #     return json.loads(serialized_data)  # Deserialize the node data if found
+        # return None  # Return None if the node does not exist
+
     def add_DHT(self, other_dht):
         """
         Add all nodes from another DHT instance to this DHT. This is useful for merging DHTs
         from multiple sources without overwriting existing nodes in the current DHT.
-
-        Args:
-            other_dht (DHT): Another DHT instance to merge nodes from.
         """
-        for node_id, node_data in other_dht.get_dht().items():
+        for node_id, node_data in other_dht.items():
             if node_id not in self._dht:
                 self._dht[node_id] = node_data  # Add the node if it doesn't already exist in the current DHT
             else:  # todo if we have more time we will override by signature of the node (public key) and timestamp.

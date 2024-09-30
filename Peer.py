@@ -46,8 +46,8 @@ class Peer:
                     sock.sendall(chunk)
         except Exception as e:
             print(f"Error sending file: {e}")
-        finally:
-            sock.close()
+        # finally:
+        #     sock.close()
 
     def send_message(self, message, sock):
         """
@@ -83,7 +83,8 @@ class Peer:
         """
         try:
             # Receive the message
-            message = sock.recv(1024).decode().strip()
+            message = sock.recv(1024)
+            message = message.decode().strip()
             if message == config.UPLOADED_SUCCESS:
                 return 1
             elif message == config.UPLOADED_FAILED:
