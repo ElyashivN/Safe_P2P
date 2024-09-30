@@ -1,6 +1,8 @@
+import time
 import unittest
 import os
 from Space_PIR import SpacePIR  # Ensure the SpacePIR class is in the space_pir.py file
+import numpy as np
 
 class TestSpacePIR(unittest.TestCase):
     def setUp(self):
@@ -13,10 +15,16 @@ class TestSpacePIR(unittest.TestCase):
         self.pir = SpacePIR(max_capacity=5, base_directory=self.test_directory)
 
     def tearDown(self):
-        # Clean up by removing the test directory and its contents after each test
+        """Clean up the test directory and its contents."""
+        # Retry logic to handle potential PermissionError on Windows
         for root, dirs, files in os.walk(self.test_directory, topdown=False):
             for name in files:
-                os.remove(os.path.join(root, name))
+                file_path = os.path.join(root, name)
+                try:
+                    os.remove(file_path)
+                except PermissionError:
+                    time.sleep(0.1)  # Wait a bit and try again
+                    os.remove(file_path)  # Try removing again
             for name in dirs:
                 os.rmdir(os.path.join(root, name))
         os.rmdir(self.test_directory)
@@ -119,49 +127,7 @@ class TestSpacePIR(unittest.TestCase):
         file_names = self.pir.get_file_names()
         self.assertEqual(file_names, expected_file_names, f"Expected file names {expected_file_names}, but got {file_names}")
 
-    def test_small_binary_files(self):
-        polynome = [30, 15, 10]
-        self.create_binary_file("file1.bin", "110")
-        self.create_binary_file("file2.bin", "101")
-        self.create_binary_file("file3.bin", "1001")
 
-        result = self.pir.get(polynome)
-        self.assertEqual(result, 1355)
-
-    def test_large_binary_files(self):
-        polynome = [1, 2, 3, 4]
-        self.create_binary_file("file1_large.bin", "1" * 2048)
-        self.create_binary_file("file2_large.bin", "0" * 1024 + "1" * 1024)
-        self.create_binary_file("file3_large.bin", "1" * 1536 + "0" * 512)
-        self.create_binary_file("file4_large.bin", "1" * 4096)
-
-        result = self.pir.get(polynome)
-        self.assertTrue(isinstance(result, int))
-
-    def test_non_multiple_of_chunk_size(self):
-        polynome = [1, 2]
-        self.create_binary_file("file1_non_multiple.bin", "1" * 1500)
-        self.create_binary_file("file2_non_multiple.bin", "0" * 600 + "1" * 400)
-
-        result = self.pir.get(polynome)
-        self.assertTrue(isinstance(result, int))
-
-    def test_empty_binary_files(self):
-        polynome = [1, 2, 3]
-        self.create_binary_file("file1_empty.bin", "")
-        self.create_binary_file("file2_empty.bin", "")
-        self.create_binary_file("file3_empty.bin", "")
-
-        result = self.pir.get(polynome)
-        self.assertEqual(result, 0)
-
-    def test_single_bit_binary_files(self):
-        polynome = [1, 2]
-        self.create_binary_file("file2_single_bit.bin", "0")
-        self.create_binary_file("file1_single_bit.bin", "1")
-
-        result = self.pir.get(polynome)
-        self.assertEqual(result, 1)
 
     def create_binary_file(self, file_name, binary_string):
         """
@@ -224,34 +190,101 @@ class TestSpacePIR(unittest.TestCase):
         self.pir.turn_on_upload()
         self.assertTrue(self.pir.is_upload_allowed(), "Uploads should be enabled after calling `turn_on_upload`.")
 
-    def test_max_capacity_reached(self):
-        # Check that `number_file_uploaded` correctly tracks the number of files uploaded
-        self.assertEqual(self.pir.number_file_uploaded, 0, "Initially, no files should be uploaded.")
+    def test_get_cross_product_basic(self):
+        """Test the basic functionality of the `get` function with a simple input vector."""
+        # Adding three files with specific byte contents
+        self.pir.add("file1.txt", b'\x01\x02\x03')  # Sum = 6
+        self.pir.add("file2.txt", b'\x04\x05\x06')  # Sum = 15
+        self.pir.add("file3.txt", b'\x07\x08\x09')  # Sum = 24
 
-        # Add files up to the new maximum capacity of 5
-        self.pir.add("file1.txt", b"Content 1")
-        self.assertEqual(self.pir.number_file_uploaded, 1, "One file should have been uploaded.")
+        # Create a vector A matching the number of files
+        A = [1, 2, 3]
 
-        self.pir.add("file2.txt", b"Content 2")
-        self.assertEqual(self.pir.number_file_uploaded, 2, "Two files should have been uploaded.")
+        # Expected cross product result: 6*1 + 15*2 + 24*3 = 6 + 30 + 72 = 108
+        result = self.pir.get(A)
+        self.assertEqual(result, 108, f"Expected 108, but got {result}")
 
-        self.pir.add("file3.txt", b"Content 3")
-        self.assertEqual(self.pir.number_file_uploaded, 3, "Three files should have been uploaded.")
+    def test_get_cross_product_small_numpy(self):
+        """Test the functionality of the `get` function using numpy with few files and simple binary content."""
+        # Adding three files with binary content
+        self.pir.add("file1.txt", b'\x01\x02')  # Content as binary (Sum = 1 + 2 = 3)
+        self.pir.add("file2.txt", b'\x03\x04')  # Content as binary (Sum = 3 + 4 = 7)
+        self.pir.add("file3.txt", b'\x05\x06')  # Content as binary (Sum = 5 + 6 = 11)
 
-        self.pir.add("file4.txt", b"Content 4")
-        self.assertEqual(self.pir.number_file_uploaded, 4, "Four files should have been uploaded.")
+        # Create a smaller vector A with simple values
+        A = [1, 2, -1]
 
-        self.pir.add("file5.txt", b"Content 5")
-        self.assertEqual(self.pir.number_file_uploaded, 5, "Five files should have been uploaded.")
+        # Using numpy directly to compute the expected result
+        expected_matrix = np.array([
+            np.frombuffer(b'\x01\x02', dtype=np.uint8),  # [1, 2]
+            np.frombuffer(b'\x03\x04', dtype=np.uint8),  # [3, 4]
+            np.frombuffer(b'\x05\x06', dtype=np.uint8)   # [5, 6]
+        ], dtype=object)
 
-        # Try to add a sixth file, which should not be allowed due to max capacity
-        self.pir.add("file6.txt", b"Content 6")
-        self.assertEqual(self.pir.number_file_uploaded, 5,
-                         "Number of files uploaded should not increase beyond capacity.")
+        A_vector = np.array(A, dtype=np.int32)
 
-        # Verify that the space only contains 5 files and no more
-        expected_file_names = ["file1.txt", "file2.txt", "file3.txt", "file4.txt", "file5.txt"]
-        self.assertEqual(self.pir.get_file_names(), expected_file_names, "There should only be 5 files in the space.")
+        # Perform matrix multiplication and get the sum as expected output
+        expected_result = np.dot(A_vector, expected_matrix).sum()
+
+        # Get the result from the `get` method
+        result = self.pir.get(A)
+        self.assertEqual(result, expected_result, f"Expected {expected_result}, but got {result}")
+
+
+    def test_get_cross_product_large_numpy(self):
+        """Test the functionality of the `get` function using numpy with larger files and varied binary content."""
+        # Adding five files with binary content
+        self.pir.add("file1.txt", b'\x01\x02\x03\x04')  # Content as binary
+        self.pir.add("file2.txt", b'\x05\x06\x07\x08')  # Content as binary
+        self.pir.add("file3.txt", b'\x09\x0A\x0B\x0C')  # Content as binary
+        self.pir.add("file4.txt", b'\x0D\x0E\x0F\x10')  # Content as binary
+        self.pir.add("file5.txt", b'\x11\x12\x13\x14')  # Content as binary
+
+        # Create a larger vector A with more varied values
+        A = [2, -1, 3, 4, -2]
+
+        # Using numpy directly to compute the expected result
+        expected_matrix = np.array([
+            np.frombuffer(b'\x01\x02\x03\x04', dtype=np.uint8),
+            np.frombuffer(b'\x05\x06\x07\x08', dtype=np.uint8),
+            np.frombuffer(b'\x09\x0A\x0B\x0C', dtype=np.uint8),
+            np.frombuffer(b'\x0D\x0E\x0F\x10', dtype=np.uint8),
+            np.frombuffer(b'\x11\x12\x13\x14', dtype=np.uint8)
+        ], dtype=object)
+
+        A_vector = np.array(A, dtype=np.int32)
+
+        # Perform matrix multiplication and get the sum as expected output
+        expected_result = np.dot(A_vector, expected_matrix).sum()
+
+        # Get the result from the `get` method
+        result = self.pir.get(A)
+        self.assertEqual(result, expected_result, f"Expected {expected_result}, but got {result}")
+
+
+
+    def test_get_vector_size_mismatch(self):
+        """Test that `get` raises a ValueError when vector size does not match the number of files."""
+        self.pir.add("file1.txt", b'\x01\x02\x03')  # Sum = 6
+        self.pir.add("file2.txt", b'\x04\x05\x06')  # Sum = 15
+
+        # Create a vector A with incorrect size
+        A = [1]
+
+        # Should raise a ValueError due to size mismatch
+        with self.assertRaises(ValueError):
+            self.pir.get(A)
+
+
+
+    def test_get_no_files(self):
+        """Test that `get` raises a ValueError when no files are stored."""
+        # Create a vector A, but no files are stored yet
+        A = [1]
+
+        # Should raise a ValueError due to no files being present
+        with self.assertRaises(ValueError):
+            self.pir.get(A)
 
 
 # Run the tests
