@@ -38,8 +38,8 @@ class SpacePIR:
             # Check if the file is already in the space list
             for name, path in self.space:
                 if name == file_name:
-                    print(f"File '{file_name}' already stored at {path}. No action needed.")
-                    return  # Exit the function as the file is already stored
+                    raise ValueError(f"File '{file_name}' already stored at {path}")
+                    # Exit the function as the file is already stored
 
             # If the file is not in the space, add it
             self.space.append((file_name, file_path))
@@ -112,7 +112,7 @@ class SpacePIR:
         cross_product_result = np.dot(A_vector, B_matrix)
 
         # Return the sum of the cross product results
-        return cross_product_result.sum()
+        return cross_product_result
 
 
 
