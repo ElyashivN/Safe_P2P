@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 import config
 from spacePIR import SpacePIR
 
+
 def delete_file(file_path):
     """
     Delete the file at the given path.
@@ -25,6 +26,7 @@ class Peer:
     """
     master class that is responsible for all communication related tasks
     """
+
     def __init__(self, peer_id, host='127.0.0.1', port=5000):
         """
         initiate the Peer class
@@ -44,8 +46,8 @@ class Peer:
     def send_file(self, file_obj, sock):
         """
         send the file
-        :param file_path: path to the file
-        :param target_port: target port
+        :param file_obj: path to the file
+        :param sock: target port
         :return: nothing
         """
         try:
@@ -62,6 +64,7 @@ class Peer:
             print(f"Error sending file: {e}")
         finally:
             sock.close()
+
     def is_uploaded_approved(self, sock):
         """
         recieve a message for uploaded success
@@ -71,11 +74,12 @@ class Peer:
         # establish a socket with the port
         suc = sock.recv(struct.calcsize('256sQ'))
         if suc == config.UPLOAD_APPROVED:
-            return True
+            return 1
         if suc == config.UPLOADED_DENIED:
-            return False
+            return 0
         else:
-            raise EnvironmentError("Failed to upload to PEER")
+            return -1
+
     def is_uploaded_success(self, sock):
         """
         recieve a message for uploaded success
@@ -85,12 +89,11 @@ class Peer:
         # establish a socket with the port
         suc = sock.recv(struct.calcsize('256sQ'))
         if suc == config.UPLOADED_SUCCESS:
-            return True
+            return 1
         if suc == config.UPLOADED_FAILED:
-            return False
+            return 0
         else:
-            raise EnvironmentError("something went wrong")
-
+            return -1
 
     def receive_file(self, client_sock):
         """
@@ -120,6 +123,7 @@ class Peer:
             print(f"Error receiving file: {e}")
             client_sock.close()
             return None, None
+
     def recieve_obj(self, sock):
         """
         recieve an object. as opposed to recieve_file, stored in RAM
@@ -136,6 +140,7 @@ class Peer:
             file += chunk
             total_received += len(chunk)
         return file
+
     def start_listening(self):
         """
         start a listener thread
@@ -174,6 +179,7 @@ class Peer:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((host, port))
         return sock
+
     def handle_peer(self, client_sock):
         """
         handle peers (either asks or recieve a file)
@@ -194,6 +200,7 @@ class Peer:
             print(f"Error handling client: {e}")
         finally:
             client_sock.close()
+
     def handle_upload_request(self, sock):
         """
         handle an upload request and send appropriate messages
@@ -207,13 +214,12 @@ class Peer:
                     # stop uploading before reaching to recieve file
                     file_name, file = self.receive_file(sock)
                     self.spacePIR.add(file_name, file)
-                    self.send(config.UPLOADED_SUCCESS,sock)
+                    self.send(config.UPLOADED_SUCCESS, sock)
                 except Exception as e:
                     print(f"Error uploading file: {e}")
-                    self.send(config.UPLOADED_FAILED,sock)
+                    self.send(config.UPLOADED_FAILED, sock)
         else:
             sock.send(config.UPLOADED_DENIED)
-
 
     def handle_get_request(self, sock):
         """
@@ -224,24 +230,21 @@ class Peer:
         try:
             # Receive the requested file polynom for the inner product homomorphic function
             list_of_files = self.spacePIR.get_file_names()
-            self.send(list_of_files, sock)# send the list of the file so that the node can create the correct poly
+            self.send(list_of_files, sock)  # send the list of the file so that the node can create the correct poly
             poly = sock.recv(256).decode().strip('\x00').strip()
             file_obj = self.spacePIR.get(poly)
             self.send(file_obj, sock)
         except Exception as e:
             print(f"Error handling get: {e}")
 
-    def send(self, file_obj, client_sock):
+    def send(self, file_obj, sock):
         """
         send a file through the thread pool
-        :param file_path: path to the file
-        :param target_port: target port
+        :param file_obj: path to the file
+        :param sock: target port
         :return: nothing
         """
-        self.executor.submit(self.send_file, file_obj, client_sock)
-
-
-
+        self.executor.submit(self.send_file, file_obj, sock)
 
     def stop(self):
         """
@@ -253,4 +256,3 @@ class Peer:
             self._listener_thread.join()
         self.executor.shutdown(wait=True)
         print(f"Peer {self.peer_id} stopped.")
-

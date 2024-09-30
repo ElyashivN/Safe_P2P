@@ -1,15 +1,12 @@
 import bisect
 import os.path
-import random
 
 import config
 from dht import DHT
 from FileHandler import FileHandler
-from spacePIR import SpacePIR
-from Peer import Peer
+from Peer import Peer, delete_file
 from encryption import Encryption
 import pickle
-import sympy as sp
 
 
 def find_index(names, target):
@@ -19,38 +16,12 @@ def find_index(names, target):
     return -1
 
 
-def construct_polynomial(target_index, n, target_value):
-    """
-    Constructs a polynomial P(x) such that:
-    P(target_index) = target_value and
-    P(j) = 0 for all j in {0, 1, ..., n-1} where j != target_index.
-
-    Parameters:
-    - target_index: the index `i` where the polynomial should evaluate to `target_value`.
-    - n: total number of indices.
-    - target_value: the value `r` that the polynomial should take at `target_index`.
-
-    Returns:
-    - The constructed polynomial P(x).
-    """
-    # Create a symbolic variable x
-    x = sp.symbols('x')
-
-    # Construct the Lagrange basis polynomial L_i(x)
-    L_i = 1
-    for j in range(n):
-        if j != target_index:
-            L_i *= (x - j) / (target_index - j)
-
-    # Construct P(x) = r * L_i(x)
-    P_x = target_value * L_i
-
-    return sp.expand(P_x)
-
 
 class Node(Peer):
+    NUMBER_TRIES_UPLOAD = 4 #number of tries to upload from peer, after which if still not working continue to next
+    SAFETY_CONSTANT = 1.1
 
-    def __init__(self, port, peer_id, host='127.0.0.1', private_key=None):
+    def __init__(self, port, peer_id, host='127.0.0.1', private_key=None, path = ""):
         super().__init__(peer_id, host, port)
         if private_key is None:
             self.publicKey, self.privateKey = Encryption.generatePublicPrivateKeys()
@@ -61,6 +32,7 @@ class Node(Peer):
         self.fileHandler = FileHandler()
         self.host = host
         self.port = port
+        self.path = path
 
     def store_Node(self, password, path=""):
         """
@@ -86,7 +58,7 @@ class Node(Peer):
         self.publicKey = self.privateKey.public_key()
         with open(path + 'dht.pickle', 'rb') as handle:
             dht = pickle.load(handle)
-        self.DHT._add(dht)
+        self.DHT.add_DHT(dht)
         with open(path + 'listfiles.pickle', 'rb') as handle:
             listfiles = pickle.load(handle)
         self.spacePIR.listfiles = listfiles
@@ -94,18 +66,29 @@ class Node(Peer):
     def listfiles(self):
         return self.spacePIR.listfiles()
 
-    def download(self, name):
+    def download(self, name, n, k):
         """
         get the name
         :param name:
         :return:
         """
         dht = self.DHT.get_dht()
+        part_files = []
         for key in dht.keys():
+            if len(part_files) >= k*Node.SAFETY_CONSTANT:
+                # if we reached a number of files that is enough to construct the files
+                return self.fileHandler.combine(part_files,n,k,self.path+name)
             info = dht[key]
             port = info[config.PORT]
             host = info[config.HOST]
-            self.download_from_client(name, port, host)
+            file_name = self.download_from_client(name, port,len(part_files), host)
+            if file_name is not None:
+                part_files.append(file_name)
+        #if we failed delete everything
+        for file in part_files:
+            delete_file(file)
+        return False
+
 
     def add_DHT(self, DHT):
         return self.DHT.add_DHT(DHT)
@@ -119,33 +102,82 @@ class Node(Peer):
         k = config.SUBFILE_SIZE
         n = (os.path.getsize(file_path) * 2) / k
         subfiles, original_size, _ = self.fileHandler.divide(file_path,self.peer_id,n,k)
-        for i, node in enumerate(self.DHT.get_dht()):
-            self.ask_upload(subfiles[i], node[config.PORT])
-            #wait then if self.recieve_uploaded_succes(node[config.PORT])) continue else more
+        dht = self.DHT.get_dht()
+        if(len(dht)<n*Node.SAFETY_CONSTANT):
+            raise ValueError(config.DHT_SMALL)
+        i = 0
+        for node in dht:
+            if self.upload_to_client(subfiles[i], node[config.PORT]):
+                i+=1
             if i >= n:
                 # if we ended up sending all the subfiles.
-                break
+                return True
+        return False
 
 
     def upload_to_client(self,file, port,host="127.0.0.1"):
+        """
+        upload the file to one client
+        :param file: the file
+        :param port: the port we use to transfer the file
+        :param host: the host the file is on
+        :return: true if transfered the file, false otherwise
+        """
         sock = self.connect(host,port)
         self.send(config.REQUEST_UPLOAD, sock)
-        if not self.is_uploaded_approved(sock):
+        #todo wait
+        uploaded = self.is_uploaded_approved(sock)
+        i = 0
+        while uploaded == -1 and i < Node.NUMBER_TRIES_UPLOAD:
+            #didnt get an approve or denied, try again until NUMBER_TRIES_UPLOAD
+            uploaded = self.is_uploaded_approved(sock)
+            i+=1
+        if uploaded == 0 or uploaded == -1:
             return False
-        self.send(file,sock)
-        self.is_uploaded_success(sock)
-        return True
+        self.send(file, sock)
+        for i in range(Node.NUMBER_TRIES_UPLOAD):
+            #tries to upload for number of tries
+            if self.is_uploaded_success(sock) == 0 and i<Node.NUMBER_TRIES_UPLOAD-1:
+                self.send(file, sock) # send again
+            if self.is_uploaded_success(sock) == 1:
+                return True
+        return False
 
-    def download_from_client(self,name, port,host="127.0.0.1"):
+    def download_from_client(self,name, port,number,host="127.0.0.1"):
         sock = self.connect(host,port)
         self.send(config.REQUEST_FILE, sock)
         list = self.recieve_obj(sock)# recieve list of all the file names
         i = find_index(list, name)
         n = len(list)
-        rand = random.randint(0, n)
-        poly = construct_polynomial(i,n, rand)
-        self.send(poly,sock)
+        v = self.construct_vector(i,n)
+        self.send(v,sock)
         obj = self.recieve_obj(sock)
-        self.privateKey.decrypt(obj)
+        if i == -1:
+            #if we don't have the file in this peer DB we want to still do the same actions to peer but return False
+            return None
+        decrypted_file = self.privateKey.decrypt(obj)
+        filename = self.path+name+str(number)
+        with open(filename, 'wb') as handle:
+            handle.write(decrypted_file)
+        return filename
+
+    def construct_vector(self, i, n):
+        """
+        Constructs and encrypts a vector of length n with a 1 at index i and 0 elsewhere.
+
+        :param i: Index where the value should be 1
+        :param n: Length of the vector
+        :return: Encrypted vector
+        """
+        # Step 1: Create the vector of length n with 0s, set 1 at index i
+        vector = [0] * n
+        if 0 <= i < n:
+            vector[i] = 1
+
+        # Step 2: Encrypt each element in the vector using the node's public key
+        encrypted_vector = [self.publicKey.encrypt(value) for value in vector]
+
+        return encrypted_vector
+
 
 

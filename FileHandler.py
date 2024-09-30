@@ -60,7 +60,7 @@ class FileHandler:
 
         return part_files, original_size, NODE_ID  # Return the list of file parts, the original file size, and NODE_ID
 
-    def combine(self, part_files, n, k, output_file, original_size):
+    def combine(self, part_files, n, k, output_file):
         """
         Combine parts into the original file (any file type) using Reed-Solomon error correction.
         This method handles binary data and can combine text, binary, or any type of file.
@@ -92,8 +92,8 @@ class FileHandler:
         # Concatenate all the decoded blocks into a single bytes object
         original_data = b''.join(decoded_blocks)
 
-        # Ensure the file is exactly the original size
-        original_data = original_data[:original_size]
+        # # Ensure the file is exactly the original size
+        # original_data = original_data[:original_size]
 
         # Write the original file to disk in binary mode
         with open(output_file, 'wb') as output:

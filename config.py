@@ -10,5 +10,6 @@ UPLOADED_SUCCESS = "uploaded successfully"
 UPLOADED_DENIED = "UPLOAD_DENIED"
 UPLOAD_APPROVED = "upload_approved"
 UPLOADED_FAILED = "UPLOADED_FAILED"
+DHT_SMALL = "cant upload because the DHT is too small for such a file. find friends"
 BUFFER_SIZE = 1024
 SUBFILE_SIZE = 1048576
