@@ -71,6 +71,7 @@ class Encryption:
 
         with open(path+'private_key.pem', 'wb') as f:
             f.write(pem_private_key)
+
     @staticmethod
     def load(password, path=""):
         # Load the private key

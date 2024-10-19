@@ -11,6 +11,7 @@ class FileHandler:
     using Reed-Solomon error correction through the Zfec library.
     """
 
+
     def divide(self, file_path, NODE_ID, n=2000, block_size=config.SUBFILE_SIZE):
         """
         Divide any type of file into exactly k parts using Reed-Solomon (RS) error correction.

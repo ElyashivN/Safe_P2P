@@ -1,7 +1,6 @@
 import os
 import numpy as np
 
-
 class SpacePIR:
     def __init__(self, max_capacity=1000, base_directory="path"):
         # Initialize an empty list to hold the file names and their storage locations

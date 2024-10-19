@@ -68,16 +68,16 @@ class TestNodeMessaging(unittest.TestCase):
         print(file_path)
         with open(file_path, "w") as f:
             f.write("This is a test file.")
-
+        print("2")
         # Upload the file from node1 to node2
         result = self.node1.upload(file_path)
         print(result)
         self.assertTrue(result, "File upload failed")
-
+        print("3")
         # Attempt to download the file back from node2
         download_success = self.node2.download("testfile.txt", 2, 1)
         self.assertTrue(download_success, "File download failed")
-
+        print("4")
         # Cleanup created test file
         if os.path.exists(file_path):
             os.remove(file_path)

@@ -117,6 +117,7 @@ class Node(Peer):
         Upload the file to a peer using a client socket.
         """
         try:
+            print(f"Peer {self.peer_id} starting upload request to {host} {port}")
             with socket.create_connection((host, port)) as sock:
                 self.send_message(config.REQUEST_UPLOAD, sock)
                 uploaded = self.is_uploaded_approved(sock)
@@ -130,7 +131,6 @@ class Node(Peer):
 
                 # Send the file
                 self.send_file(file, sock)
-
                 # Wait for success confirmation
                 for i in range(Node.NUMBER_TRIES_UPLOAD):
                     success = self.is_uploaded_success(sock)

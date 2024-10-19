@@ -10,7 +10,6 @@ class SpacePIR:
         self.max_capacity = max_capacity
         self.number_file_uploaded = 0
         self.is_allow_upload = True
-
     def change_capacity(self,new_capacity):
         if new_capacity > len(self.space):
             self.max_capacity = new_capacity

@@ -38,12 +38,15 @@ class Peer:
         Send the file over the socket.
         """
         try:
+            # Send file name first
+            sock.sendall(file_obj.encode())
             # Send file content in chunks
             with open(file_obj, 'rb') as f:
                 while True:
                     chunk = f.read(config.BUFFER_SIZE)
                     if not chunk:
                         break
+                    print(f"Peer {self.peer_id} sending file chunk: {chunk}")
                     sock.sendall(chunk)
         except Exception as e:
             print(f"Error sending file: {e}")
@@ -55,7 +58,11 @@ class Peer:
         try:
             if isinstance(message, str):
                 message = message.encode()
+            print(f"Peer {self.peer_id} sending message {message}")
             sock.sendall(message)
+        except TimeoutError:
+            print("timeout in send_message")
+            raise
         except Exception as e:
             print(f"Error sending message: {e}")
 
@@ -72,6 +79,8 @@ class Peer:
                 return 0
             else:
                 return -1
+        except TimeoutError:
+            return -1
         except Exception as e:
             print(f"Error in is_uploaded_approved: {e}")
             return -1
@@ -83,33 +92,43 @@ class Peer:
         try:
             # Receive the message
             message = sock.recv(1024).decode().strip()
+            print(f"message received: {message}")
             if message == config.UPLOADED_SUCCESS:
                 return 1
             elif message == config.UPLOADED_FAILED:
                 return 0
             else:
                 return -1
+        except TimeoutError:
+            return -1
         except Exception as e:
             print(f"Error in is_uploaded_success: {e}")
             return -1
+
 
     def receive_file(self, client_sock):
         """
         Receive a file from the client socket.
         """
+        total_received = 0
+        file_name = ""
+        file_content = []
         try:
             # Read file metadata
             file_name = client_sock.recv(1024).decode()
+            print(f"Peer {self.peer_id} recieved filename: {file_name}")
 
-            total_received = 0
-            with open(file_name, 'wb') as f:
-                while True:
-                    chunk = client_sock.recv(config.BUFFER_SIZE)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-                    total_received += len(chunk)
-            return file_name, total_received
+            while True:
+                chunk = client_sock.recv(config.BUFFER_SIZE)
+                if not chunk:
+                    break
+                file_content.append(chunk)
+                total_received += len(chunk)
+            return file_name, b''.join(file_content)
+        except TimeoutError:
+            if file_name:
+                return file_name, b''.join(file_content)
+            raise
         except Exception as e:
             print(f"Error receiving file: {e}")
             return None, None
@@ -118,14 +137,15 @@ class Peer:
         """
         Receive an object stored in RAM.
         """
+        data = b''
         try:
-            data = b''
             while True:
                 chunk = sock.recv(config.BUFFER_SIZE)
-                if not chunk:
-                    break
                 data += chunk
-            return data
+        except TimeoutError:
+            if data:
+                return data
+            raise
         except Exception as e:
             print(f"Error receiving object: {e}")
             return None
@@ -150,6 +170,7 @@ class Peer:
                 s.settimeout(1)
                 try:
                     conn, addr = s.accept()
+                    conn.settimeout(5)
                     print(f"Peer {self.peer_id} accepted connection from {addr}.")
                     # Use context manager for handling each client connection
                     with conn:
@@ -184,8 +205,12 @@ class Peer:
                 print(f"Error in handle_peer: received empty message.")
             else:
                 self.send_message(f"{message_type}", sock)
+        except TimeoutError:
+            print(f"Peer {self.peer_id} handle peer timed-out")
+            raise
         except Exception as e:
             print(f"Error handling client: {e}")
+
 
     def handle_upload_request(self, sock):
         """
@@ -201,7 +226,12 @@ class Peer:
                         self.send_message(config.UPLOADED_SUCCESS, sock)
                     else:
                         self.send_message(config.UPLOADED_FAILED, sock)
+                except TimeoutError:
+                    print(f"Peer {self.peer_id} Timed out in handle upload request")
+                    raise
                 except Exception as e:
+                    import traceback
+                    print(traceback.format_exc())
                     print(f"Error uploading file: {e}")
                     self.send_message(config.UPLOADED_FAILED, sock)
         else:
@@ -214,10 +244,10 @@ class Peer:
         try:
             # Send the list of file names
             list_of_files = self.spacePIR.get_file_names()
-            self.send_file(list_of_files, sock)
+            for file in list_of_files:
+                self.send_file(file, sock)
             data = self.receive_obj(sock)
             A = np.array(data)
-            #todo check if this supposed to happen
             result = self.spacePIR.get(A)
             self.send_file(result, sock)
         except Exception as e:

@@ -114,6 +114,7 @@ class DHT:
             del self._dht[node_id]  # Remove the node from the local DHT
             # await self.server.set(node_id, None)  # Remove the node from the Kademlia DHT
 
+
     # def shutdown(self):
     #     """
     #     Gracefully shut down the DHT and Kademlia server. This method cancels all pending tasks and ensures
