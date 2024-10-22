@@ -125,12 +125,16 @@ class Peer:
         """
         try:
             data = b''
-            while True:
+            sock.settimeout(2)
+            while data == b'':
                 chunk = sock.recv(config.BUFFER_SIZE)
                 if not chunk:
-                    break
+                    continue
                 data += chunk
             return data
+        except socket.timeout:
+            print("didnt recieve any object")
+            return None
         except Exception as e:
             print(f"Error receiving object: {e}")
             return None

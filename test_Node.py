@@ -1,3 +1,6 @@
+import json
+import pickle
+import socket
 import unittest
 import threading
 import os
@@ -63,6 +66,80 @@ class TestNodeMessaging(unittest.TestCase):
 
         # Close the socket
         sock.close()
+
+    def test_send_recieve(self):
+        test_message = b"Hello from Node1, testing recieving function Nodes"
+        sock = self.node1.connect('127.0.0.1', 5002)
+        self.node1.send_message(test_message, sock)
+        try:
+            response = self.node2.receive_obj(sock)
+            while response == "":
+                self.node1.send_message(config.REQUEST_FILE, sock)
+                response = self.node2.receive_obj(sock)
+            print(f"Node2 received: {response}")
+        except Exception as e:
+            print(f"Error receiving message: {e}")
+            response = ""
+
+        # Check if the response matches the sent message
+        self.assertEqual(response, test_message, f"Expected '{test_message}', but got '{response}'")
+
+        # Close the socket
+        sock.close()
+
+    def test_mock_download(self):
+        test_message = b"Hello from Node1, testing recieving function Nodes"
+        sock = self.node1.connect('127.0.0.1', 5002)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        self.node1.send_message(config.REQUEST_FILE, sock)
+        list_files = ["mock"]
+        try:
+            get_request = self.node2.receive_obj(sock)
+            while get_request is None:
+                self.node1.send_message(config.REQUEST_FILE, sock)
+                get_request = self.node2.receive_obj(sock)
+            if get_request == config.REQUEST_FILE:
+                print("request_file achieved")
+                binary_list = json.dumps(list_files).encode('utf-8')
+                self.node2.send_message(binary_list, sock)
+                get_list = self.node1.receive_obj(sock)
+                while get_list is None:
+                    self.node2.send_message(binary_list, sock)
+                    get_list = self.node1.receive_obj(sock)
+                if get_list == binary_list:
+                    print("list files acheived")
+                    vector = [1]
+                    binary_vector = pickle.dumps(vector)
+                    self.node1.send_message(binary_vector, sock)
+                    get_vector = self.node2.receive_obj(sock)
+                    while get_vector == "":
+                        self.node1.send_message(binary_vector, sock)
+                        get_vector = self.node2.receive_obj(sock)
+                    if get_vector == binary_vector:
+                        print(f"Node1 received vector: {get_vector}")
+                        self.node2.send_message(test_message, sock)
+                        response = self.node1.receive_obj(sock)
+                        while response == "":
+                            self.node2.send_message(test_message, sock)
+                            response = self.node1.receive_obj(sock)
+
+                        # Check if the response matches the sent message
+                        self.assertEqual(response, test_message, f"Expected '{test_message}', but got '{response}'")
+
+                        # Close the socket
+                        sock.close()
+
+
+
+        except Exception as e:
+            print(f"Error receiving message: {e}")
+            response = ""
+
+        # # Check if the response matches the sent message
+        # self.assertEqual(response, test_message, f"Expected '{test_message}', but got '{response}'")
+        #
+        # # Close the socket
+        # sock.close()
 
     def test_upload_download(self):
         # Test uploading a file from node1 to node2
