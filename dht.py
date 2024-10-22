@@ -1,7 +1,4 @@
-import asyncio
-from kademlia.network import Server
 from datetime import datetime
-import json
 
 
 class DHT:
