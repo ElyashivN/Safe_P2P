@@ -15,17 +15,22 @@ class TestNodeMessaging(unittest.TestCase):
         # Setup nodes with different ports and IDs
         self.node1 = Node(5001, peer_id=1)
         self.node2 = Node(5002, peer_id=2)
+        self.node3 = Node(5003, peer_id=3)
+
 
         # Create a DHT with references to both nodes
-        self.node1.add_DHT({1: {config.PORT: 5001, config.HOST: '127.0.0.1'},
+        self.node1.add_DHT({1: {config.PORT: 5003, config.HOST: '127.0.0.1'},
                             2: {config.PORT: 5002, config.HOST: '127.0.0.1'}})
         self.node2.add_DHT({1: {config.PORT: 5001, config.HOST: '127.0.0.1'},
+                            2: {config.PORT: 5003, config.HOST: '127.0.0.1'}})
+        self.node3.add_DHT({1: {config.PORT: 5001, config.HOST: '127.0.0.1'},
                             2: {config.PORT: 5002, config.HOST: '127.0.0.1'}})
 
         # Start a simple server on each node to listen for incoming messages
         print("Starting node listeners...")
         threading.Thread(target=self.node1.start_listening, daemon=True).start()
         threading.Thread(target=self.node2.start_listening, daemon=True).start()
+        threading.Thread(target=self.node3.start_listening, daemon=True).start()
 
         # Allow more time for the servers to start
         sleep(3)  # Increase this value if nodes take longer to initialize
@@ -110,10 +115,10 @@ class TestNodeMessaging(unittest.TestCase):
                     print("list files acheived")
                     vector = [1]
                     binary_vector = pickle.dumps(vector)
-                    self.node1.send_message(binary_vector, sock)
+                    self.node1.send_message(test_message, sock)
                     get_vector = self.node2.receive_obj(sock)
-                    while get_vector == "":
-                        self.node1.send_message(binary_vector, sock)
+                    while get_vector is None:
+                        self.node1.send_message(test_message, sock)
                         get_vector = self.node2.receive_obj(sock)
                     if get_vector == binary_vector:
                         print(f"Node1 received vector: {get_vector}")
@@ -154,7 +159,7 @@ class TestNodeMessaging(unittest.TestCase):
         self.assertTrue(result, "File upload failed")
 
         # Attempt to download the file back from node2
-        download_success = self.node2.download("testfile.txt", 2, 1)
+        download_success = self.node1.download("testfile.txt", 2, 1)
         self.assertTrue(download_success, "File download failed")
 
         # Cleanup created test file

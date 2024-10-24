@@ -2,10 +2,11 @@ import os
 import socket
 import struct
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 import config
 from spacePIR import SpacePIR
-
+import queue
 def delete_file(file_path):
     """
     Delete the file at the given path.
@@ -31,6 +32,10 @@ class Peer:
         self._listener_thread = None
         self.spacePIR = SpacePIR()
         self._upload_lock = threading.Lock()  # Specific lock for SpacePIR uploads to prevent concurrent uploads
+        self.upload_work_list = queue.Queue()
+        self.download_work_list = queue.Queue()
+
+
 
     def send_file(self, file_obj, sock):
         """
@@ -38,12 +43,16 @@ class Peer:
         """
         try:
             # Send file content in chunks
+            print("file sending...")
             with open(file_obj, 'rb') as f:
+                print("file opened")
                 while True:
                     chunk = f.read(config.BUFFER_SIZE)
                     if not chunk:
                         break
+                    print(chunk)
                     sock.sendall(chunk)
+                print("file sent successfully.")
         except Exception as e:
             print(f"Error sending file: {e}")
         # finally:
@@ -66,7 +75,7 @@ class Peer:
         """
         try:
             # Receive the message
-            message = sock.recv(1024).decode().strip()
+            message = sock.recv(1024).strip()
             if message == config.UPLOAD_APPROVED:
                 return 1
             elif message == config.UPLOAD_DENIED:
@@ -84,7 +93,8 @@ class Peer:
         try:
             # Receive the message
             message = sock.recv(1024)
-            message = message.decode().strip()
+            message = message.strip()
+            print(message)
             if message == config.UPLOADED_SUCCESS:
                 return 1
             elif message == config.UPLOADED_FAILED:
@@ -101,23 +111,24 @@ class Peer:
         """
         try:
             # Read file metadata
-            file_name_size = struct.unpack('I', client_sock.recv(4))[0]
-            file_name = client_sock.recv(file_name_size).decode()
-
-            total_received = 0
+            # file_name_size = struct.unpack('I', client_sock.recv(4))[0]
+            data = client_sock.recv(256).decode()
+            file_name = data.split(',')[0]
             with open(file_name, 'wb') as f:
-                while True:
-                    chunk = client_sock.recv(config.BUFFER_SIZE)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-                    total_received += len(chunk)
-            return file_name, total_received
+                f.write(data.encode())
+            # total_received = 0
+            # with open(file_name, 'wb') as f:
+            #     while True:
+            #         chunk = client_sock.recv(config.BUFFER_SIZE)
+            #         if not chunk:
+            #             break
+            #         f.write(chunk)
+            #         total_received += len(chunk)
+            return file_name
+
         except Exception as e:
             print(f"Error receiving file: {e}")
-            return None, None
-        finally:
-            client_sock.close()
+            return None
 
     def receive_obj(self, sock):
         """
@@ -125,7 +136,7 @@ class Peer:
         """
         try:
             data = b''
-            sock.settimeout(2)
+            sock.settimeout(10)
             while data == b'':
                 chunk = sock.recv(config.BUFFER_SIZE)
                 if not chunk:
@@ -158,7 +169,7 @@ class Peer:
             print(f"Peer {self.peer_id} listening on {self.host}:{self.port}...")
 
             while not self._stop_event.is_set():
-                s.settimeout(2)  # Set a small timeout to allow regular checking
+                s.settimeout(10)  # Set a small timeout to allow regular checking
                 try:
                     print(f"Peer {self.peer_id} waiting for connections...")
                     conn, addr = s.accept()  # Accept a new connection
@@ -186,10 +197,12 @@ class Peer:
         """
         try:
             # First, receive the message type
-            message_type = sock.recv(1024).decode().strip()
-            if message_type == config.REQUEST_UPLOAD:
+            message_type = sock.recv(1024).strip()
+            if message_type == config.REQUEST_UPLOAD or message_type == "request_upload":
+                print("Upload has been requested from node ",str(self.peer_id),"by port ",str(sock.getpeername()[1]))
                 self.handle_upload_request(sock)
             elif message_type == config.REQUEST_FILE:
+                print("download has been requested from node ",str(self.peer_id),"by port ",str(sock.getpeername()[1]))
                 self.handle_get_request(sock)
             elif message_type == "":
                 print(f"Error in handle_peer: for some reason is empty ")
@@ -199,43 +212,61 @@ class Peer:
         except Exception as e:
             print(f"Error handling client: {e}")
         finally:
-            sock.close()
+            if sock.fileno() != -1:  # Check if socket is still open
+                sock.close()
+            # sock.close()
 
     def handle_upload_request(self, sock):
-        """
-        Handle an upload request and send appropriate messages.
-        """
-        if self.spacePIR.is_allow_upload:
-            with self._upload_lock:
+        self.upload_work_list.put(sock)
+        print("handle upload request debug")  # This prints, so we know we reach here
+
+        print("Attempting to acquire upload lock...")  # Add this print
+        with self._upload_lock:
+            print("Lock acquired")  # Add this print to check if we acquire the lock
+
+            print(f"spacePIR.is_allow_upload: {self.spacePIR.is_allow_upload}")  # This prints True
+            if self.spacePIR.is_allow_upload:
+                print("uploading debug")  # This is what we expect but are not seeing
                 self.send_message(config.UPLOAD_APPROVED, sock)
+                print("message has been sent debug")
                 try:
-                    file_name, _ = self.receive_file(sock)
+                    print("going to try to recieve debug")
+                    time.sleep(2) #wait a bit before recieving
+                    print("checking")
+                    file_name = self.receive_file(sock)
+                    print(f"file name debug: {file_name}")
                     if file_name:
                         self.spacePIR.add(file_name)
+                        print("file has been added to spacePIR")
+                        print("list of files in spacePIR is ",self.spacePIR.get_file_names(), " on peer ",self.peer_id)
                         self.send_message(config.UPLOADED_SUCCESS, sock)
                     else:
                         self.send_message(config.UPLOADED_FAILED, sock)
                 except Exception as e:
                     print(f"Error uploading file: {e}")
                     self.send_message(config.UPLOADED_FAILED, sock)
-        else:
-            self.send_message(config.UPLOAD_DENIED, sock)
+            else:
+                print("npooooooooo sdebug")  # This should print if upload is denied
+                self.send_message(config.UPLOAD_DENIED, sock)
 
     def handle_get_request(self, sock):
         """
         Handle request to send a file to the peer.
         """
+        self.download_work_list.put(sock)
         try:
             # Send the list of file names
             list_of_files = self.spacePIR.get_file_names()
             self.send_message('\n'.join(list_of_files), sock)
 
-            # Receive the polynomial (or vector)
-            data = self.receive_obj(sock)
+            # Receive the vector)
+            vector = self.receive_obj(sock)
+            vector.decode()
             # Process the data and prepare the response (omitted for brevity)
+            response = self.spacePIR.get(vector)
 
             # Send the response
-            # self.send_file(response_file, sock)
+            self.send_message(response, sock) #todo check for using send file
             # For simplicity, assuming response_file is prepared
         except Exception as e:
             print(f"Error handling get request: {e}")

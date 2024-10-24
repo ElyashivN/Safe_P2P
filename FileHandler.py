@@ -57,7 +57,7 @@ class FileHandler:
             # Unique file name based on original file name, part number, and NODE_ID
             part_filename = f"{file_name}_part{i}_node{NODE_ID}"
             with open(part_filename, 'wb') as part_file:  # Write in binary mode
-                part_file.write(part)
+                part_file.write(part_filename.encode()+b","+part)
             part_files.append(part_filename)
 
         return part_files, k, NODE_ID  # Return the list of file parts, the original file size, and NODE_ID

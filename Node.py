@@ -1,6 +1,9 @@
 import bisect
 import os
 import socket
+import threading
+import time
+
 import config
 from dht import DHT
 from FileHandler import FileHandler
@@ -38,6 +41,7 @@ class Node(Peer):
         self.host = host
         self.port = port
         self.path = path
+        self.start_upload_download_thread()
 
     def store_Node(self, password, path=""):
         """
@@ -116,13 +120,16 @@ class Node(Peer):
         """
         Upload the file to a peer using a client socket.
         """
+        print("uploading from ", str(self.peer_id), " to port: ", str(port))
         try:
             with socket.create_connection((host, port)) as sock:
                 self.send_message(config.REQUEST_UPLOAD, sock)
                 uploaded = self.is_uploaded_approved(sock)
+                time.sleep(0.1)  # 100 ms to give the peer time to process the request
 
                 i = 0
                 while uploaded == -1 and i < Node.NUMBER_TRIES_UPLOAD:
+                    time.sleep(0.1)  # 100 ms to give the peer time to process the request
                     uploaded = self.is_uploaded_approved(sock)
                     i += 1
 
@@ -130,7 +137,10 @@ class Node(Peer):
                     return False
 
                 # Send the file
+                # self.send_message(file+",", sock)  # sending out file name todo if we change file handler to have name
+                # in top of file this is redundunt
                 self.send_file(file, sock)
+                print("file has been sent")
 
                 # Wait for success confirmation
                 for i in range(Node.NUMBER_TRIES_UPLOAD):
@@ -144,6 +154,31 @@ class Node(Peer):
             print(f"Error uploading to peer: {e}")
             return False
 
+    def construct_list_from_bytes(self, list_bin):
+        """
+        Converts a byte stream representing a list of file names (separated by newlines) into a Python list.
+
+        Args:
+            list_bin (bytes): A byte stream containing file names separated by '\n'.
+
+        Returns:
+            list: A list of file names.
+        """
+        try:
+            # Decode the byte stream into a string
+            decoded_str = list_bin.decode('utf-8')
+
+            # Split the string by newline characters to get the list of file names
+            file_list = decoded_str.split('\n')
+
+            # Filter out any empty strings that might result from trailing newlines
+            file_list = [file_name for file_name in file_list if file_name]
+
+            return file_list
+        except Exception as e:
+            print(f"Error constructing list from bytes: {e}")
+            return []
+
     def download_from_peer(self, name, port, number, host="127.0.0.1"):
         """
         Download a file part from a peer.
@@ -152,23 +187,73 @@ class Node(Peer):
             with socket.create_connection((host, port)) as sock:
                 self.send_message(config.REQUEST_FILE, sock)
                 file_list = self.receive_obj(sock)
+                file_list = self.construct_list_from_bytes(file_list)
                 i = find_index(file_list, name)
                 n = len(file_list)
                 v = self.construct_vector(i, n)
-                self.send_file(v, sock)
+                self.send_file('\n'.join(v), sock)
                 obj = self.receive_obj(sock)
 
             if i == -1:
                 return None
 
+            print("downloaded object, processing it")
             decrypted_file = self.privateKey.decrypt(obj)
+            file = decrypted_file.split(',')[1]
             filename = os.path.join(self.path, f"{name}_{number}")
             with open(filename, 'wb') as handle:
-                handle.write(decrypted_file)
+                handle.write(file)
             return filename
         except Exception as e:
             print(f"Error downloading from peer: {e}")
             return None
+
+    def start_upload_download_thread(self):
+        self._upload_thread = threading.Thread(target=self.upload_work)
+        self._upload_thread.start()
+        self._download_thread = threading.Thread(target=self.download_work)
+        self._download_thread.start()
+
+    def download_work(self):
+        while True:
+            sock = self.download_work_list.get()  # Thread-safe pop equivalent for queue
+            try:
+                # Send the list of file names
+                list_of_files = self.spacePIR.get_file_names()
+                self.send_message('\n'.join(list_of_files), sock)
+
+                # Receive the vector
+                vector = self.receive_obj(sock)
+
+                # Process the data and prepare the response (omitted for brevity)
+                data = self.spacePIR.get(vector)
+
+                # Send the response
+                self.send_file(data, sock)
+            except Exception as e:
+                print(f"Error handling get request: {e}")
+
+    def upload_work(self):
+        print("Uploading work")
+        # while True:
+        #     # Block until an item is available in the queue
+        #     sock = self.upload_work_list.get()  # Automatically handles removing the item
+        #     print("we actually have work debug")
+        #     if self.spacePIR.is_allow_upload:
+        #         with self._upload_lock:
+        #             self.send_message(config.UPLOAD_APPROVED, sock)
+        #             try:
+        #                 file_name, _ = self.receive_file(sock)
+        #                 if file_name:
+        #                     self.spacePIR.add(file_name)
+        #                     self.send_message(config.UPLOADED_SUCCESS, sock)
+        #                 else:
+        #                     self.send_message(config.UPLOADED_FAILED, sock)
+        #             except Exception as e:
+        #                 print(f"Error uploading file: {e}")
+        #                 self.send_message(config.UPLOADED_FAILED, sock)
+        #     else:
+        #         self.send_message(config.UPLOAD_DENIED, sock)
 
     def add_DHT(self, other_DHT):
         return self.DHT.add_DHT(other_DHT)
