@@ -215,23 +215,24 @@ class Node(Peer):
         self._download_thread.start()
 
     def download_work(self):
-        while True:
-            sock = self.download_work_list.get()  # Thread-safe pop equivalent for queue
-            try:
-                # Send the list of file names
-                list_of_files = self.spacePIR.get_file_names()
-                self.send_message('\n'.join(list_of_files), sock)
-
-                # Receive the vector
-                vector = self.receive_obj(sock)
-
-                # Process the data and prepare the response (omitted for brevity)
-                data = self.spacePIR.get(vector)
-
-                # Send the response
-                self.send_file(data, sock)
-            except Exception as e:
-                print(f"Error handling get request: {e}")
+        pass
+        # while True:
+        #     sock = self.download_work_list.get()  # Thread-safe pop equivalent for queue
+        #     try:
+        #         # Send the list of file names
+        #         list_of_files = self.spacePIR.get_file_names()
+        #         self.send_message('\n'.join(list_of_files), sock)
+        #
+        #         # Receive the vector
+        #         vector = self.receive_obj(sock)
+        #
+        #         # Process the data and prepare the response (omitted for brevity)
+        #         data = self.spacePIR.get(vector)
+        #
+        #         # Send the response
+        #         self.send_file(data, sock)
+        #     except Exception as e:
+        #         print(f"Error handling get request: {e}")
 
     def upload_work(self):
         print("Uploading work")
@@ -265,5 +266,8 @@ class Node(Peer):
         vector = [0] * n
         if 0 <= i < n:
             vector[i] = 1
-        encrypted_vector = [self.publicKey.encrypt(value) for value in vector]
+        print(self.privateKey)
+        Encryption.encrypt(self.privateKey, 1)
+        encrypted_vector = [self.privateKey.encrypt(value) for value in vector]
+        print(encrypted_vector)
         return encrypted_vector

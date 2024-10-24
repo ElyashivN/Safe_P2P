@@ -234,6 +234,7 @@ class Peer:
                     time.sleep(2) #wait a bit before recieving
                     print("checking")
                     file_name = self.receive_file(sock)
+                    # file_name = f"{file_name}_rport_{sock.getpeername()[1]}"
                     print(f"file name debug: {file_name}")
                     if file_name:
                         self.spacePIR.add(file_name)
@@ -260,7 +261,10 @@ class Peer:
             self.send_message('\n'.join(list_of_files), sock)
 
             # Receive the vector)
+            time.sleep(2)
             vector = self.receive_obj(sock)
+            print("ohhhhhhhhhhhhh")
+
             vector.decode()
             # Process the data and prepare the response (omitted for brevity)
             response = self.spacePIR.get(vector)
