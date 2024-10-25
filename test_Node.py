@@ -19,10 +19,10 @@ class TestNodeMessaging(unittest.TestCase):
 
 
         # Create a DHT with references to both nodes
-        self.node1.add_DHT({1: {config.PORT: 5003, config.HOST: '127.0.0.1'},
+        self.node1.add_DHT({3: {config.PORT: 5003, config.HOST: '127.0.0.1'},
                             2: {config.PORT: 5002, config.HOST: '127.0.0.1'}})
         self.node2.add_DHT({1: {config.PORT: 5001, config.HOST: '127.0.0.1'},
-                            2: {config.PORT: 5003, config.HOST: '127.0.0.1'}})
+                            3: {config.PORT: 5003, config.HOST: '127.0.0.1'}})
         self.node3.add_DHT({1: {config.PORT: 5001, config.HOST: '127.0.0.1'},
                             2: {config.PORT: 5002, config.HOST: '127.0.0.1'}})
 

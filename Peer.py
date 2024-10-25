@@ -177,6 +177,7 @@ class Peer:
                     threading.Thread(target=self.handle_peer, args=(conn,)).start()
                 except socket.timeout:
                     # Timeout indicates no incoming connections; continue listening
+                    print("socket timeout")
                     continue
                 except Exception as e:
                     print(f"Error in listener for Peer {self.peer_id}: {e}")
@@ -212,8 +213,10 @@ class Peer:
         except Exception as e:
             print(f"Error handling client: {e}")
         finally:
-            if sock.fileno() != -1:  # Check if socket is still open
-                sock.close()
+            time.sleep(5)
+            print(f"Peer {self.peer_id} stopped listening.")
+            # if sock.fileno() != -1:  # Check if socket is still open
+            #     sock.close()
             # sock.close()
 
     def handle_upload_request(self, sock):
@@ -249,6 +252,30 @@ class Peer:
             else:
                 print("npooooooooo sdebug")  # This should print if upload is denied
                 self.send_message(config.UPLOAD_DENIED, sock)
+    def construct_list_from_bytes(self, list_bin):
+        """
+        Converts a byte stream representing a list of file names (separated by newlines) into a Python list.
+
+        Args:
+            list_bin (bytes): A byte stream containing file names separated by '\n'.
+
+        Returns:
+            list: A list of file names.
+        """
+        try:
+            # Decode the byte stream into a string
+            decoded_str = list_bin.decode('utf-8')
+
+            # Split the string by newline characters to get the list of file names
+            file_list = decoded_str.split('\n')
+
+            # Filter out any empty strings that might result from trailing newlines
+            file_list = [file_name for file_name in file_list if file_name]
+
+            return file_list
+        except Exception as e:
+            print(f"Error constructing list from bytes: {e}")
+            return []
 
     def handle_get_request(self, sock):
         """
@@ -263,14 +290,14 @@ class Peer:
             # Receive the vector)
             time.sleep(2)
             vector = self.receive_obj(sock)
-            print("ohhhhhhhhhhhhh")
-
-            vector.decode()
+            vector = self.construct_list_from_bytes(vector)
             # Process the data and prepare the response (omitted for brevity)
             response = self.spacePIR.get(vector)
 
             # Send the response
+            print(response)
             self.send_message(response, sock) #todo check for using send file
+            print(f'response for download has been sent from node {self.peer_id} to peer {sock.getpeername()[1]}')
             # For simplicity, assuming response_file is prepared
         except Exception as e:
             print(f"Error handling get request: {e}")

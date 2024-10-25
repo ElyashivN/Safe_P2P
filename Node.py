@@ -154,30 +154,6 @@ class Node(Peer):
             print(f"Error uploading to peer: {e}")
             return False
 
-    def construct_list_from_bytes(self, list_bin):
-        """
-        Converts a byte stream representing a list of file names (separated by newlines) into a Python list.
-
-        Args:
-            list_bin (bytes): A byte stream containing file names separated by '\n'.
-
-        Returns:
-            list: A list of file names.
-        """
-        try:
-            # Decode the byte stream into a string
-            decoded_str = list_bin.decode('utf-8')
-
-            # Split the string by newline characters to get the list of file names
-            file_list = decoded_str.split('\n')
-
-            # Filter out any empty strings that might result from trailing newlines
-            file_list = [file_name for file_name in file_list if file_name]
-
-            return file_list
-        except Exception as e:
-            print(f"Error constructing list from bytes: {e}")
-            return []
 
     def download_from_peer(self, name, port, number, host="127.0.0.1"):
         """
@@ -191,14 +167,15 @@ class Node(Peer):
                 i = find_index(file_list, name)
                 n = len(file_list)
                 v = self.construct_vector(i, n)
-                self.send_file('\n'.join(v), sock)
+                self.send_message('\n'.join(v), sock)
+                time.sleep(2) #debug wait for 2 seconds to recieve
                 obj = self.receive_obj(sock)
 
             if i == -1:
                 return None
 
             print("downloaded object, processing it")
-            decrypted_file = self.privateKey.decrypt(obj)
+            decrypted_file = Encryption.decrypt(self.privateKey, obj)
             file = decrypted_file.split(',')[1]
             filename = os.path.join(self.path, f"{name}_{number}")
             with open(filename, 'wb') as handle:
@@ -267,7 +244,7 @@ class Node(Peer):
         if 0 <= i < n:
             vector[i] = 1
         print(self.privateKey)
-        Encryption.encrypt(self.privateKey, 1)
-        encrypted_vector = [self.privateKey.encrypt(value) for value in vector]
+        Encryption.encrypt(self.publicKey, 1)
+        encrypted_vector = [Encryption.encrypt(self.publicKey, value) for value in vector]
         print(encrypted_vector)
         return encrypted_vector

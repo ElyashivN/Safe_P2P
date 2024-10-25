@@ -1,3 +1,4 @@
+import base64
 import os
 import numpy as np
 
@@ -91,37 +92,35 @@ class SpacePIR:
 
     def get(self, A):
         """
-        Takes a vector A, validates its size, and performs a cross product using numpy.
+        Multiplies each file in B by the corresponding encrypted element in A without decryption.
 
         Args:
-            A (list): Vector A whose size should match the number of stored files.
+            A (list): Vector A containing encrypted values.
 
         Returns:
-            int: The cross product result using numpy.
+            int: The cumulative result of element-wise file multiplications with A.
         """
         # Step 1: Validate the input vector size
         if len(A) != len(self.space):
             raise ValueError(
                 f"Size of vector A ({len(A)}) does not match the number of stored files ({len(self.space)}).")
-        # Step 2: Create a matrix B where each row is the binary content of a file
-        B = []
-        for _, file_path in self.space:
+
+        # Initialize cumulative result
+        cumulative_result = 0
+
+        # Step 2: Process each encrypted element in A and corresponding file in B
+        for encrypted_value, (_, file_path) in zip(A, self.space):
+            # Read the binary file content and interpret it as a large integer
             with open(file_path, 'rb') as file:
-                file_content = np.frombuffer(file.read(), dtype=np.uint8)
-                B.append(file_content)
+                file_content = file.read()
+                file_int = int.from_bytes(file_content, byteorder='big')  # Convert entire binary to a large integer
 
-        # Step 3: Use numpy to calculate the cross product (A @ B)
-        B_matrix = np.array(B, dtype=object)  # Create numpy matrix with binary file contents
-        A_vector = np.array(A, dtype=np.int32)
+            # Multiply the encrypted value directly by the file's integer content
+            # Here, we assume that the multiplication operation is valid in the encrypted domain
+            cumulative_result += encrypted_value * file_int  # encrypted_value is used directly
 
-        # Matrix multiplication (dot product of B and A)
-        cross_product_result = np.dot(A_vector, B_matrix)
-
-        # Return the sum of the cross product results
-        return cross_product_result
-
-
-
+        # Return the cumulative result of all multiplications
+        return cumulative_result
 
     # def get(self, polynome):
     #     """

@@ -40,10 +40,10 @@ class DHT:
         """
         if node_id in self._dht:
             return self.get_dht()  # Return the current DHT without adding the node if it already exists
-        await self._add_node(port, node_id, socket)  # Add the node if it does not exist
+        await self.add_node(port, node_id, socket)  # Add the node if it does not exist
         return self.get_dht()  # Return the updated DHT
 
-    async def _add_node(self, port, node_id, socket):
+    async def add_node(self, port, node_id, socket):
         """
         Add a node to both the local DHT and the Kademlia server. This method handles the creation of
         node metadata (such as timestamps) and ensures the data is serialized for storage in Kademlia.
