@@ -33,12 +33,15 @@ class SpacePIR:
     def is_upload_allowed(self):
         return self.is_allow_upload
 
-    def add(self, file_name, file_content=None):
+    def add(self, data):
         """
         Add a file to the space and store it only if it is not already stored.
         The file content must be in binary format (`bytes` or `bytearray`).
         `file_content` can be `None` to create an empty file.
         """
+        file_name = data.decode().split(',')[0]
+        if len(file_name) > 256:
+            raise ValueError("File name too long")
         if self.number_file_uploaded < self.max_capacity and self.is_allow_upload:
             # Define the storage path for this file using the base directory
             file_path = os.path.join(self.base_directory, file_name)
@@ -51,23 +54,12 @@ class SpacePIR:
             # If the file is not in the space, add it
             self.space.append((file_name, file_path))
             self.space.sort(key=lambda x: x[0])  # Keep the list sorted by file_name
-
-            # Ensure that the file content is in binary format, if provided
-            if file_content is None:
-                # Create an empty file
-                print(f"File '{file_name}' will be created as an empty file.")
-                file_content = b""
-            elif isinstance(file_content, str):
-                # Convert binary strings (e.g., "1101") to bytes
-                if all(c in "01" for c in file_content):
-                    file_content = int(file_content, 2).to_bytes((len(file_content) + 7) // 8, 'big')
-                else:
-                    raise ValueError("String content is not binary. Provide bytes or a valid binary string.")
-
             # Store the file with the given byte content
-            self.store(file_path, file_content)
+            self.store(file_path, data)
+            return True
         else:
             print("You are not allowed to upload or you reached the maximum capacity")
+            return False
 
     def store(self, file_path, file_content):
         """
@@ -113,11 +105,14 @@ class SpacePIR:
             # Read the binary file content and interpret it as a large integer
             with open(file_path, 'rb') as file:
                 file_content = file.read()
+                # print(f"file_content)
                 file_int = int.from_bytes(file_content, byteorder='big')  # Convert entire binary to a large integer
 
             # Multiply the encrypted value directly by the file's integer content
             # Here, we assume that the multiplication operation is valid in the encrypted domain
+            encrypted_value = int.from_bytes(encrypted_value.encode(), byteorder='big')
             cumulative_result += encrypted_value * file_int  # encrypted_value is used directly
+            # encryption(pailier object)
 
         # Return the cumulative result of all multiplications
         return cumulative_result

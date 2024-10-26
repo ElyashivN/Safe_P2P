@@ -112,10 +112,9 @@ class Peer:
         try:
             # Read file metadata
             # file_name_size = struct.unpack('I', client_sock.recv(4))[0]
-            data = client_sock.recv(256).decode()
-            file_name = data.split(',')[0]
-            with open(file_name, 'wb') as f:
-                f.write(data.encode())
+            data = client_sock.recv(256)
+            # with open(file_name, 'wb') as f:
+            #     f.write(data.encode())
             # total_received = 0
             # with open(file_name, 'wb') as f:
             #     while True:
@@ -124,7 +123,7 @@ class Peer:
             #             break
             #         f.write(chunk)
             #         total_received += len(chunk)
-            return file_name
+            return data
 
         except Exception as e:
             print(f"Error receiving file: {e}")
@@ -236,11 +235,9 @@ class Peer:
                     print("going to try to recieve debug")
                     time.sleep(2) #wait a bit before recieving
                     print("checking")
-                    file_name = self.receive_file(sock)
+                    data = self.receive_file(sock)
                     # file_name = f"{file_name}_rport_{sock.getpeername()[1]}"
-                    print(f"file name debug: {file_name}")
-                    if file_name:
-                        self.spacePIR.add(file_name)
+                    if self.spacePIR.add(data):
                         print("file has been added to spacePIR")
                         print("list of files in spacePIR is ",self.spacePIR.get_file_names(), " on peer ",self.peer_id)
                         self.send_message(config.UPLOADED_SUCCESS, sock)
@@ -296,6 +293,7 @@ class Peer:
 
             # Send the response
             print(response)
+            response = str(response)
             self.send_message(response, sock) #todo check for using send file
             print(f'response for download has been sent from node {self.peer_id} to peer {sock.getpeername()[1]}')
             # For simplicity, assuming response_file is prepared
