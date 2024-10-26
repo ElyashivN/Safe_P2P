@@ -1,11 +1,13 @@
 import tkinter as tk
 from tkinter import filedialog, simpledialog, ttk
 import threading
-import time  # Simulating time-consuming tasks
+import time
 import socket
 import hashlib
 from Node import Node
 from dht import DHT
+import test_Node
+import unittest
 
 # Global variable to keep track of the latest port used
 latest_port = 5001  # Starting port
@@ -59,7 +61,6 @@ class GUI:
                                 bg="#f0f0f0", pady=10)
         footer_label.pack(side='bottom', fill='x')
 
-        # Store the Node instance for node-related functionality
         self.node = node
 
     def add_to_dht_action(self):
@@ -84,7 +85,7 @@ class GUI:
         # Ask the user to enter the node_id
         node_id = simpledialog.askstring("Add Node", "Enter the Node ID:")
 
-        # Ask the user to enter the host (socket object might be created based on the host)
+        # Ask the user to enter the host
         host = simpledialog.askstring("Add Node", "Enter the Host:")
         self.node.DHT.add_node(port, node_id, host)
         print(f"here is all the nodes:{self.node.DHT.get_dht()}") #todo check that it prints what we want
@@ -105,14 +106,14 @@ class GUI:
         file_list_window.title("List of Files")
         file_list_window.geometry("300x200")
 
-        # Create a label to display the file names
         if file_names:
-            files_text = "\n".join(file_names)  # Join the file names with new lines
+            files_text = "\n".join(file_names)
             label = tk.Label(file_list_window, text=files_text)
         else:
             label = tk.Label(file_list_window, text="No files available.")
 
         label.pack(pady=10)
+
 
     def add_hover_effect(self, button):
         def on_enter(event):
@@ -141,23 +142,33 @@ class GUI:
             k = simpledialog.askinteger("Download", "Enter k:")
             self.node.download(file_name, n, k)
 
-    def run_mock_tests(self, progress, result_labels): #todo call our tests
-        test_cases = [{"name": "Test 1", "duration": 3, "passed": True},
-                      {"name": "Test 2", "duration": 5, "passed": False},
-                      {"name": "Test 3", "duration": 2, "passed": True}]
+    def run_tests(self, progress, result_labels):  #todo maybe elyashiv changed the tests or the names
+        test_cases = [
+            {"name": "Test Message Exchange", "func": test_Node.TestNodeMessaging("test_message_exchange")},
+            {"name": "Test Send Receive", "func": test_Node.TestNodeMessaging("test_send_recieve")},
+            {"name": "Test Mock Download", "func": test_Node.TestNodeMessaging("test_mock_download")},
+            {"name": "Test Upload Download", "func": test_Node.TestNodeMessaging("test_upload_download")}
+        ]
 
         total_tests = len(test_cases)
         for i, test in enumerate(test_cases):
             print(f"Running {test['name']}...")
             result_labels[i].config(text=f"{test['name']}: Running... ⏳", fg="blue")
-            time.sleep(test["duration"])
 
+            # Run the test function and check if it passes
+            result = unittest.TextTestRunner().run(test["func"])
+            passed = result.wasSuccessful()
+
+            # Update progress bar
             progress["value"] = (i + 1) / total_tests * 100
             self.root.update_idletasks()
 
-            result_labels[i].config(text=f"{test['name']}: ✔️ Passed" if test["passed"] else "❌ Failed",
-                                    fg="green" if test["passed"] else "red")
-            print(f"{test['name']} {'Passed' if test['passed'] else 'Failed'}.")
+            # Update result label based on test outcome
+            result_labels[i].config(
+                text=f"{test['name']}: ✔️ Passed" if passed else "❌ Failed",
+                fg="green" if passed else "red"
+            )
+            print(f"{test['name']} {'Passed' if passed else 'Failed'}.")
 
     def test_action(self):
         new_window = tk.Toplevel(self.root)
@@ -177,7 +188,7 @@ class GUI:
         for label in result_labels:
             label.pack()
 
-        test_thread = threading.Thread(target=self.run_mock_tests, args=(progress, result_labels,))
+        test_thread = threading.Thread(target=self.run_tests, args=(progress, result_labels,))
         test_thread.start()
 
         def check_tests_done():
@@ -214,19 +225,15 @@ def load_node(root, node):  # todo not working yet
     password_entry.pack(pady=5)
 
     # Function to handle password submission
-    def submit_password(event=None):  # event=None allows calling from both button and key press
+    def submit_password(event=None):
         password = password_entry.get()
-        print("[INFO] Password entered.")  # For debugging, remove in production
-
+        print("[INFO] Password entered.")
         # Call load_node with the entered password
         Node.load_node(node, password)
-
-        # Close the password window
         password_window.destroy()
 
     # Bind the Enter key to the submit_password function
     password_entry.bind('<Return>', submit_password)
-
     # Submit button
     submit_button = ttk.Button(password_window, text="Submit", command=submit_password)
     submit_button.pack(pady=10)
@@ -234,7 +241,7 @@ def load_node(root, node):  # todo not working yet
 
 def create_new_node(root,flag_load):
     peer_id = generate_peer_id()
-    port = get_next_available_port()  # Get the next available port by incrementing the global `latest_port`
+    port = get_next_available_port()
     node = Node(peer_id, port)
     print(f"Created new Node with ID: {peer_id} on Port: {port}")
     if not flag_load:
@@ -267,7 +274,7 @@ def first_window():
 def generate_peer_id():
     # Create a unique peer_id based on the hostname and timestamp
     unique_data = f"{socket.gethostname()}-{time.time()}"
-    peer_id = hashlib.sha256(unique_data.encode()).hexdigest()[:8]  # Shorten hash for readability
+    peer_id = hashlib.sha256(unique_data.encode()).hexdigest()[:8]
     print(f"Generated Peer ID: {peer_id}")
     return peer_id
 
