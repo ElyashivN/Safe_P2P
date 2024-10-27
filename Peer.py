@@ -64,7 +64,7 @@ class Peer:
         """
         try:
             if isinstance(message, str):
-                message = message.encode()
+                message = message.encode('UTF-8')
             sock.sendall(message)
         except Exception as e:
             print(f"Error sending message: {e}")

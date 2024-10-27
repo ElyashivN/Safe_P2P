@@ -176,6 +176,12 @@ class Node(Peer):
 
             print("downloaded object, processing it")
             decrypted_file = Encryption.decrypt(self.privateKey, obj)
+            print(decrypted_file)
+            file_content_reverted = decrypted_file.to_bytes((decrypted_file.bit_length() + 7) // 8, byteorder='big',
+                                                            signed=True)
+            print(file_content_reverted)
+            print(file_content_reverted.decode("UTF-8"))
+            print(file_content_reverted.decode("ascii"))
             file = decrypted_file.split(',')[1]
             filename = os.path.join(self.path, f"{name}_{number}")
             with open(filename, 'wb') as handle:

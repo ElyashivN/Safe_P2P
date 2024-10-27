@@ -117,6 +117,8 @@ class SpacePIR:
         # Return the cumulative result of all multiplications
         return cumulative_result
 
+
+
     # def get(self, polynome):
     #     """
     #     Calculate the sum of polynomial evaluations multiplied by the corresponding binary file values.
