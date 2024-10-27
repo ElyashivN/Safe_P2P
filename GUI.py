@@ -63,6 +63,7 @@ class GUI:
 
         self.node = node
 
+
     def add_to_dht_action(self):
         """Open a new window with 'Add DHT' and 'Add Node' buttons."""
         dht_window = tk.Toplevel(self.root)
@@ -91,10 +92,18 @@ class GUI:
         print(f"here is all the nodes:{self.node.DHT.get_dht()}") #todo check that it prints what we want
 
     def add_dht_to_dht(self):
-        """Call the add_DHT method of the DHT class."""
-        new_dht = DHT(get_next_available_port())
+        """Prompt the user for a port and call the add_DHT method of the DHT class with the specified port."""
+
+        # Ask the user to enter the port for the new DHT
+        port = simpledialog.askinteger("Add DHT", "Enter the Port for the new DHT:")
+
+        # Create a new DHT instance with the user-specified port
+        new_dht = DHT(port)
+
+        # Add the new DHT to the current node's DHT list
         self.node.add_DHT(new_dht)
-        print(f"DHT added to the current node's DHT.")
+
+        print(f"DHT with Port {port} added to the current node's DHT.")
 
     def display_file_list(self):
         """Display the list of file names retrieved from the SpacePIR instance."""
@@ -238,19 +247,20 @@ def load_node(root, node):  # todo not working yet
     submit_button = ttk.Button(password_window, text="Submit", command=submit_password)
     submit_button.pack(pady=10)
 
-
-def create_new_node(root,flag_load):
-    peer_id = generate_peer_id()
-    port = get_next_available_port()
-    node = Node(peer_id, port)
-    print(f"Created new Node with ID: {peer_id} on Port: {port}")
+def create_new_node(root, flag_load):
     if not flag_load:
+        port = simpledialog.askinteger("Create New Node", "Enter the Port:")
+        peer_id = simpledialog.askstring("Create New Node", "Enter the Peer ID:")
+
+        # Create the node with the provided port and peer ID
+        node = Node(peer_id, port)
+        print(f"Created new Node with ID: {peer_id} on Port: {port}")
         main_window(root, node)
-    return node
+        return node
 
 
 def first_window():
-    # Create a window to prompt for the password when loading a node
+    # Initial window to prompt for password or create/load node
     root = tk.Tk()
     root.title("Node Creation")
     root.geometry("300x150")
@@ -260,33 +270,15 @@ def first_window():
     style.configure("Hover.TButton", background="#7FFF7F")
 
     # "Create New Node" Button
-    create_button = ttk.Button(root, text="Create New Node", command=lambda: create_new_node(root,False))
+    create_button = ttk.Button(root, text="Create New Node", command=lambda: create_new_node(root, False))
     create_button.pack(pady=10)
 
     # "Load Node" Button
-    node = create_new_node(root,True)
+    node = create_new_node(root, True)
     load_button = ttk.Button(root, text="Load Node", command=lambda: load_node(root, node))
     load_button.pack(pady=10)
 
     root.mainloop()
-
-
-def generate_peer_id():
-    # Create a unique peer_id based on the hostname and timestamp
-    unique_data = f"{socket.gethostname()}-{time.time()}"
-    peer_id = hashlib.sha256(unique_data.encode()).hexdigest()[:8]
-    print(f"Generated Peer ID: {peer_id}")
-    return peer_id
-
-
-def get_next_available_port():
-    # Access and update the global latest_port variable
-    global latest_port
-    port = latest_port
-    latest_port += 1  # Increment port for the next peer
-    print(f"Assigning Port: {port}")
-    return port
-
 
 if __name__ == '__main__':
     first_window()
