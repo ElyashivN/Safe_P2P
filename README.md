@@ -44,7 +44,7 @@ pip install cryptography zfec phe
    python GUI.py
    ```
 
-Upon starting, you’ll see options to either create a new node or load an existing one. Once a node is active, you can use the features described below.
+Upon starting, you’ll see options to either create a new node or load an existing one. Once a node is active from one of these options, you can use the features described below.
 
 ### GUI Components
 
