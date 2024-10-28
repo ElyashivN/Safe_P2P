@@ -12,7 +12,7 @@
 ### Requirements
 
 To run the code, you’ll need:
-- Python 
+- Python 3.8+
 - The following Python libraries:
   - `tkinter` (usually included with Python)
   - `socket`
