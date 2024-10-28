@@ -55,7 +55,10 @@ Upon starting, you’ll see options to either create a new node or load an exist
 5. **Test Button**  
    Runs various tests to verify network functions, such as messaging and file transfer.
 
-6. **Exit**  
+6. **Store Node**
+   Stores the node with a user-specified password. This function adds a layer of security by requiring a password to save the current node state.
+
+7. **Exit**  
    Exits the application.
 
 ### Main Features
