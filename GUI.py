@@ -14,7 +14,7 @@ class GUI:
     def __init__(self, root, node):
         self.root = root
         self.root.title("File Management Tool")
-        self.root.geometry("300x410")
+        self.root.geometry("300x500")
         print("GUI initialized.")
 
         # Create a Canvas for background pattern
@@ -31,39 +31,44 @@ class GUI:
 
         # Upload button
         upload_button = ttk.Button(button_frame, text="Upload", command=self.upload_file, width=20)
-        upload_button.pack(pady=10)
+        upload_button.pack(pady=8)
 
         # Download button
         download_button = ttk.Button(button_frame, text="Download", command=self.download_file, width=20)
-        download_button.pack(pady=10)
+        download_button.pack(pady=8)
 
         # Test button
         test_button = ttk.Button(button_frame, text="Test", command=self.test_action, width=20)
-        test_button.pack(pady=10)
+        test_button.pack(pady=8)
 
         # Add to DHT button
         add_dht_button = ttk.Button(button_frame, text="Add to DHT", command=self.add_to_dht_action, width=20)
-        add_dht_button.pack(pady=10)
+        add_dht_button.pack(pady=8)
 
         # Get List Files button
-        get_list_button = ttk.Button(button_frame, text="Get List Files on node", command=self.display_file_list, width=20)
-        get_list_button.pack(pady=10)
+        get_list_button = ttk.Button(button_frame, text="Get List Files on node", command=self.display_file_list,
+                                     width=20)
+        get_list_button.pack(pady=8)
 
         # Get List Files button
-        get_list_button = ttk.Button(button_frame, text="Get the files node uploaded", command=self.display_uploaded_files, width=20)
-        get_list_button.pack(pady=10)
+        get_list_button = ttk.Button(button_frame, text="Get the files node uploaded",
+                                     command=self.display_uploaded_files, width=20)
+        get_list_button.pack(pady=8)
 
+        # Store Node button
+        store_button = ttk.Button(button_frame, text="Store Node", command=self.store_node, width=20)
+        store_button.pack(pady=8)
 
         # Exit button
         exit_button = ttk.Button(button_frame, text="Exit", command=self.root.quit, width=20)
-        exit_button.pack(pady=10)
+        exit_button.pack(pady=8)
 
         # Footer Label
         footer_label = tk.Label(main_frame, text="Developed by Eitan & Elyashiv", font=("Helvetica", 10),
-                                bg="#f0f0f0", pady=10)
+                                bg="#f0f0f0", pady=8)
         footer_label.pack(side='bottom', fill='x')
 
-        self.node = node
+        self.node=node
 
     def display_uploaded_files(self):
         """open a ist of all the uploaded files"""
@@ -82,6 +87,13 @@ class GUI:
             label = tk.Label(file_list_window, text="No files available.")
 
         label.pack(pady=10)
+
+    def store_node(self):
+        """Prompt the user for a password and call the store_Node method."""
+        password = simpledialog.askstring("Store Node", "Enter the password:")
+        if password:
+            self.node.store_Node(password)
+            print(f"Node stored with password:{password}")
 
     def add_to_dht_action(self):
         """Open a new window with 'Add DHT' and 'Add Node' buttons."""
@@ -256,7 +268,7 @@ def load_node(root, node):  # todo not working yet
         password = password_entry.get()
         print("[INFO] Password entered.")
         # Call load_node with the entered password
-        Node.load_node(node, password)
+        node.load_node(password)
         password_window.destroy()
 
     # Bind the Enter key to the submit_password function
