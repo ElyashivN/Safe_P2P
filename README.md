@@ -37,14 +37,7 @@ pip install cryptography zfec phe
    git clone https://github.com/ElyashivN/Safe_P2P.git
    ```
 
-2. **Navigate to the Project Directory**:
-   Change to the project’s main directory:
-
-   ```bash
-   cd Safe_P2P
-   ```
-
-3. **Start the GUI**:
+2. **Start the GUI**:
    Run the following command to launch the graphical interface:
 
    ```bash
@@ -80,23 +73,5 @@ Upon starting, you’ll see options to either create a new node or load an exist
 - **DHT Management**: Allows adding nodes or entire DHT instances to enhance network resilience and data redundancy.
 - **Testing Module**: Validates network operations, including file uploads/downloads and inter-node communication, ensuring system reliability.
 
-### API Functions
-
-#### `upload_file`
-Prompts the user to select a file from their system and uploads it to the network. Uses the `upload` method from the `Node` class.
-
-#### `download_file`
-Requests a file from the network. The user provides the file name and parameters `n` and `k` for file reconstruction.
-
-#### `add_to_dht_action`
-Opens a window with options to add a DHT or a new node to the current DHT, enhancing the network's peer structure.
-
-#### `display_file_list`
-Displays the list of files stored across the network, using the `get_file_names` method from the `spacePIR` module.
-
-#### `test_action`
-Runs a series of tests to validate the network's file management capabilities, displaying results in real-time.
-
----
 
 This README provides a comprehensive guide for setting up, running, and using the GUI in this decentralized file management project. For more details, refer to the [GitHub repository](https://github.com/ElyashivN/Safe_P2P/tree/main).
