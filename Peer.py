@@ -48,7 +48,6 @@ class Peer:
                     chunk = f.read(config.BUFFER_SIZE)
                     if not chunk:
                         break
-                    print(chunk)
                     sock.sendall(chunk)
                 print("file sent successfully.")
         except Exception as e:
@@ -109,7 +108,10 @@ class Peer:
         try:
             # Read file metadata
             # file_name_size = struct.unpack('I', client_sock.recv(4))[0]
-            data = client_sock.recv(256)
+            data =b""
+            for i in range(config.SUBFILE_SIZE//config.BUFFER_SIZE):
+                data += client_sock.recv(config.BUFFER_SIZE)
+            data += client_sock.recv(config.FILE_NAME_SIZE)
             # with open(file_name, 'wb') as f:
             #     f.write(data.encode())
             # total_received = 0
@@ -134,7 +136,7 @@ class Peer:
             data = b''
             sock.settimeout(10)
             while data == b'':
-                chunk = sock.recv(config.BUFFER_SIZE)
+                chunk = sock.recv(config.BUFFER_SIZE) #todo check if need to be subfilesize
                 if not chunk:
                     continue
                 data += chunk
@@ -229,7 +231,6 @@ class Peer:
                 try:
                     print("going to try to recieve debug")
                     time.sleep(2) #wait a bit before recieving
-                    print("checking")
                     data = self.receive_file(sock)
                     # file_name = f"{file_name}_rport_{sock.getpeername()[1]}"
                     if self.spacePIR.add(data):

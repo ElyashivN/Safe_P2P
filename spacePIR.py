@@ -1,9 +1,5 @@
-import base64
 import os
 from typing import List
-
-import numpy as np
-
 import config
 from encryption import Encryption
 
@@ -44,7 +40,7 @@ class SpacePIR:
         The file content must be in binary format (`bytes` or `bytearray`).
         `file_content` can be `None` to create an empty file.
         """
-        file_name = data.decode().split(',')[0]
+        file_name = data[:256].split(b',')[0].decode('utf-8')
         if len(file_name) > 256:
             raise ValueError("File name too long")
         if self.number_file_uploaded < self.max_capacity and self.is_allow_upload:
@@ -114,72 +110,19 @@ class SpacePIR:
                 # print(f"file_content)
                 file_ints = [int.from_bytes(file_content[i:i+config.BUFFER_SIZE], byteorder='big') for i in range
                 (0, config.SUBFILE_SIZE,config.BUFFER_SIZE)]
-                file_int = int.from_bytes(file_content, byteorder='big')  # Convert entire binary to a large integer
+                # file_int = int.from_bytes(file_content, byteorder='big')  # Convert entire binary to a large integer
 
 
             # Multiply the encrypted value directly by the file's integer content
             # Here, we assume that the multiplication operation is valid in the encrypted domain
-            # bytedebug = base64.b64decode(encrypted_value)
-            # encrypted_value = int.from_bytes(bytedebug, byteorder='big')
             encrypted_value = int.from_bytes(encrypted_value, byteorder='big')
             for i in range(chunks_len):
                 encrypted_file = Encryption.encrypt(public_key, file_ints[i])
                 encrypted_file_int = int.from_bytes(encrypted_file, byteorder='big')
                 cumulative_result_vector[i] += encrypted_value * encrypted_file_int  # encrypted_value is used directly
-                # encryption(pailier object)
 
         # Return the cumulative result of all multiplications
         result_vector = [cumulative_result_vector[i].to_bytes(
                     (cumulative_result_vector[i].bit_length() + 7) // 8, byteorder='big') for i in range(chunks_len)]
 
         return result_vector
-
-
-
-    # def get(self, polynome):
-    #     """
-    #     Calculate the sum of polynomial evaluations multiplied by the corresponding binary file values.
-    #     Each file path is retrieved from the stored space in the order of the polynomial coefficients.
-    #     """
-    #     def evaluate_polynomial(coefficients, x_value):
-    #         """
-    #         Evaluates the polynomial for a given x value.
-    #         The polynomial is represented by a list of coefficients, where
-    #         coefficients[i] corresponds to the coefficient of x^i.
-    #         """
-    #         return sum(coeff * (x_value ** i) for i, coeff in enumerate(coefficients))
-    #
-    #     total_sum = 0
-    #
-    #     # Iterate over each value of x (1-based index), using each value in the polynomial as x value
-    #     for index, x_value in enumerate(range(0, len(polynome))):
-    #         # Evaluate the polynomial value
-    #         result = evaluate_polynomial(polynome, x_value)
-    #         print(result)
-    #         # Retrieve the corresponding file path from the space list at index `index`
-    #         if index < len(self.space):
-    #             file_path = self.space[index][1]
-    #         else:
-    #             raise IndexError(f"No file in space corresponds to index {index}")
-    #
-    #         # Process the binary file incrementally to calculate the integer value
-    #         file_int_value = 0
-    #         with open(file_path, 'rb') as binary_file:
-    #             # Check if the file is empty before reading
-    #             file_content = binary_file.read()
-    #             if not file_content:
-    #                 print(f"File {file_path} is empty.")  # File is empty
-    #                 file_int_value = 0
-    #             else:
-    #
-    #                 binary_file.seek(0)  # Reset the file pointer to the beginning
-    #
-    #                 # Read the binary file in chunks to construct the integer value
-    #                 while chunk := binary_file.read(1024):  # Read in chunks of 1024 bytes (adjust as needed)
-    #                     # Convert each chunk to an integer and accumulate
-    #                     chunk_value = int.from_bytes(chunk, 'big')
-    #                     file_int_value = (file_int_value << (8 * len(chunk))) + chunk_value
-    #
-    #         # Multiply the polynomial result by the large integer value from the file
-    #         total_sum += result * file_int_value
-    #     return total_sum

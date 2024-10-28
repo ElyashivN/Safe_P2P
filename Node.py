@@ -191,7 +191,7 @@ class Node(Peer):
                 time.sleep(2) #debug wait for 2 seconds to recieve
                 list_chunks = list()
                 for i in range(config.SUBFILE_SIZE//config.BUFFER_SIZE):
-                    obj = self.receive_obj(sock)
+                    obj = self.receive_obj(sock) #Here
                     list_chunks.append(obj)
 
 

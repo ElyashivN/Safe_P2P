@@ -173,8 +173,8 @@ class GUI:
         test_cases = [
             {"name": "Test Message Exchange", "func": test_Node.TestNodeMessaging("test_message_exchange")},
             {"name": "Test Send Receive", "func": test_Node.TestNodeMessaging("test_send_recieve")},
-            {"name": "Test Mock Download", "func": test_Node.TestNodeMessaging("test_mock_download")},
-            {"name": "Test Upload Download", "func": test_Node.TestNodeMessaging("test_upload_download")}
+            {"name": "Test PIR Upload Download", "func": test_Node.TestNodeMessaging("test_upload_download")},
+            {"name": "Test large_file_download", "func": test_Node.TestNodeMessaging("test_multiple_peers_with_large_file")}
         ]
 
         total_tests = len(test_cases)
@@ -209,7 +209,7 @@ class GUI:
         progress = ttk.Progressbar(new_window, length=300, mode='determinate')
         progress.pack(pady=10)
 
-        test_names = ["Test 1", "Test 2", "Test 3"]
+        test_names = ["Test communication","Test send_recieve", "Test PIR UPLOAD DOWNLOAD", "Test PIR big file"]
         result_labels = [tk.Label(new_window, text=f"{test_name}: Pending", font=("Helvetica", 12))
                          for test_name in test_names]
         for label in result_labels:
