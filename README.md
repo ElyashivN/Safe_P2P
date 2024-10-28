@@ -9,24 +9,15 @@
 - [Main Features](#main-features)
 - [API Functions](#api-functions)
 
-### Requirements
-
+###Requirements
 To run the code, you’ll need:
-- Python 3.8+
-- The following Python libraries:
-  - `tkinter` (usually included with Python)
-  - `socket`
-  - `hashlib`
-  - `cryptography`
-  - `unittest`
-  - `zfec`
-  - `paillier` (for homomorphic encryption, part of `phe` library)
 
-You can install these dependencies using:
+Python 3.8+
+The necessary Python libraries are listed in requirements.txt. To install them, navigate to the project directory and use:
 
-```bash
-pip install cryptography zfec phe
-```
+ ```bash
+pip install -r requirements.txt
+ ```
 
 ### Setup and Running the Code
 _To test the functionality of SAFE P2P, you must run multiple instances of the GUI in parallel. This setup allows you to simulate peer-to-peer interactions. You can also run tests that does the same_
