@@ -29,7 +29,7 @@ pip install cryptography zfec phe
 ```
 
 ### Setup and Running the Code
-_To test the functionality of SAFE P2P, you must run multiple instances of the GUI in parallel. This setup allows you to simulate peer-to-peer interactions._
+_To test the functionality of SAFE P2P, you must run multiple instances of the GUI in parallel. This setup allows you to simulate peer-to-peer interactions. You can also run tests that does the same_
 
 1. **Clone the Repository**:
    First, download the project files from GitHub by running:
