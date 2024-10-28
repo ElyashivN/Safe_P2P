@@ -217,6 +217,9 @@ class Node(Peer):
     def add_DHT(self, other_DHT):
         return self.DHT.add_DHT(other_DHT)
 
+    def add_node_to_DHT(self, port, node_id, host):
+        return self.DHT.add_node(port, node_id, host)
+
     def construct_vector(self, i, n):
         """
         Constructs and encrypts a vector for secure retrieval.

@@ -115,6 +115,108 @@ class TestNodeMessaging(unittest.TestCase):
         self.node1.stop()
         self.node2.stop()
 
+    def test_upload_download_large_file(self):
+        """
+        Test uploading and downloading a large file (1 MB) between nodes.
+        """
+        file_path = "large_testfile_1mb.txt"
+        print(file_path)
+
+        # Create a 1 MB test file
+        with open(file_path, "wb") as f:
+            f.write(os.urandom(1024 * 1024))  # 1 MB of random data
+
+        # Upload the file from node1 to node2
+        result, _ = self.node1.upload(file_path)
+        print(result)
+        self.assertTrue(result != 0, "Large file upload failed")
+
+        # Attempt to download the file back from node2
+        download_success = self.node1.download("large_testfile_1mb.txt", 2, 1)
+        self.assertTrue(download_success, "Large file download failed")
+
+        # Cleanup
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    def test_multiple_peers(self):
+        """
+        Test setup with more than 10 peers for communication and upload/download.
+        """
+        num_peers = 12
+        peers = [Node(5000 + i, peer_id=i) for i in range(1, num_peers + 1)]
+
+        # Start listening on all peers
+        for peer in peers:
+            threading.Thread(target=peer.start_listening, daemon=True).start()
+
+        sleep(3)  # Ensure all peers are listening
+
+        # Perform a simple message exchange between node1 and each other node
+        for i, peer in enumerate(peers[1:], start=2):  # Skip node1 (already initialized)
+            sock = self.node1.connect('127.0.0.1', 5000 + i)
+            test_message = f"Hello from Node1 to Node {i}"
+            self.node1.send_message(test_message.encode(), sock)
+            response = sock.recv(1024).decode().strip()
+            self.assertEqual(response, test_message, f"Message exchange with Node {i} failed")
+            sock.close()
+
+    def test_multiple_peers_with_large_file(self):
+        """
+        Test upload and download of a large file (1 MB) with multiple peers (more than 10).
+        """
+        num_peers = 12
+        peers = [Node(5000 + i, peer_id=i) for i in range(1, num_peers + 1)]
+
+        # Start listening on all peers
+        for peer in peers:
+            threading.Thread(target=peer.start_listening, daemon=True).start()
+
+        sleep(3)  # Ensure all peers are listening
+
+        # Create and upload a 1 MB file
+        file_path = "large_testfile_1mb_multi_peer.txt"
+        with open(file_path, "wb") as f:
+            f.write(os.urandom(1024 * 1024))  # 1 MB of random data
+
+        # Upload the file from node1 to a random peer
+        local_host = '127.0.0.1'
+        for peer in peers:
+            self.node1.add_node_to_DHT(peer.port,peer.peer_id, local_host)
+        result, _ = self.node1.upload(file_path)
+        self.assertTrue(result != 0, "File upload failed in multi-peer test")
+
+        # Download the file from another random peer
+        download_success = self.node1.download("large_testfile_1mb_multi_peer.txt", 2, 1)
+        self.assertTrue(download_success, "File download failed in multi-peer test")
+
+        # Cleanup
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    def test_upload_download_very_large_file(self):
+        """
+        Test uploading and downloading a very large file (>3 MB).
+        """
+        file_path = "very_large_testfile.txt"
+        print(file_path)
+
+        # Create a 3 MB test file
+        with open(file_path, "wb") as f:
+            f.write(os.urandom(3 * 1024 * 1024))  # 3 MB of random data
+
+        # Upload the file from node1 to node2
+        result, _ = self.node1.upload(file_path)
+        self.assertTrue(result != 0, "Very large file upload failed")
+
+        # Attempt to download the file back from node2
+        download_success = self.node1.download("very_large_testfile.txt", 2, 1)
+        self.assertTrue(download_success, "Very large file download failed")
+
+        # Cleanup
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
 
 if __name__ == '__main__':
     unittest.main()

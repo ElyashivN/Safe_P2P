@@ -271,8 +271,12 @@ class Peer:
             return []
 
     def construct_list_from_bytes(self, list_bin):
-        # if len(list_bin) % (config.PAILIER_KEY_SIZE//4) != 0:
-        #     raise ValueError("List size must be multiple of PAILIER_KEY_SIZE, as each element is the size of it")
+        """
+        construct a list from bytes. each element is exactly Pailier_keysize in bytes/2,
+         and the last element is the Public Key n
+        :param list_bin: list in binary format
+        :return: the list elements and the public key it sends
+        """
         vector = []
         i = 0
         while i < len(list_bin)-config.KEY_SIZE:

@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import config
+
 
 class DHT:
     def __init__(self):
@@ -43,28 +45,19 @@ class DHT:
         await self.add_node(port, node_id, host)  # Add the node if it does not exist
         return self.get_dht()  # Return the updated DHT
 
-    async def add_node(self, port, node_id, host):
+    def add_node(self, port, node_id, host):
         """
-        Add a node to both the local DHT and the Kademlia server. This method handles the creation of
-        node metadata (such as timestamps) and ensures the data is serialized for storage in Kademlia.
+        Add a new node to the DHT.
 
-        Args:
-            port (int): The port number of the node.
-            node_id (str): The unique identifier for the node.
-            socket (str): The socket address (IP and port) of the node.
+        :param port: The port of the new node.
+        :param node_id: The unique identifier of the new node.
+        :param host: The host/IP address of the new node.
+        :return: True if added successfully, False if node already exists.
         """
-        current_time = datetime.now()  # Capture the current time for timestamps
-        node_data = {
-            'port': port,
-            'host': host,
-            'upload_time': current_time.isoformat(),  # Timestamp when the node was added
-            'last_get': current_time.isoformat()  # Timestamp of the last retrieval
-        }
-        self._dht[node_id] = node_data  # Store the node data in the local DHT
-
-        # # Serialize the node data to JSON for storage in the Kademlia network
-        # serialized_data = json.dumps(node_data)
-        # await self.server.set(node_id, serialized_data)  # Store the node in the Kademlia DHT
+        if node_id not in self._dht:
+            self._dht[node_id] = {config.PORT: port, config.HOST: host}
+            return True
+        return False  # Node already exists
 
     def get_dht(self):
         """
