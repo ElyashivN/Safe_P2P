@@ -11,6 +11,6 @@ UPLOAD_DENIED = b"UPLOAD_DENIED"
 UPLOAD_APPROVED = b"upload_approved"
 UPLOADED_FAILED = b"UPLOADED_FAILED"
 DHT_SMALL = "cant upload because the DHT is too small for such a file. find friends"
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 4096
 SUBFILE_SIZE = 20
 PAILIER_KEY_SIZE = 3072

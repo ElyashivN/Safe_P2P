@@ -1,12 +1,11 @@
 import os
+import pickle
 import socket
-import struct
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 import config
 from spacePIR import SpacePIR
-import queue
 def delete_file(file_path):
     """
     Delete the file at the given path.
@@ -32,8 +31,6 @@ class Peer:
         self._listener_thread = None
         self.spacePIR = SpacePIR()
         self._upload_lock = threading.Lock()  # Specific lock for SpacePIR uploads to prevent concurrent uploads
-        self.upload_work_list = queue.Queue()
-        self.download_work_list = queue.Queue()
 
 
 
@@ -219,7 +216,6 @@ class Peer:
             # sock.close()
 
     def handle_upload_request(self, sock):
-        self.upload_work_list.put(sock)
         print("handle upload request debug")  # This prints, so we know we reach here
 
         print("Attempting to acquire upload lock...")  # Add this print
@@ -276,27 +272,32 @@ class Peer:
             return []
 
     def construct_list_from_bytes(self, list_bin):
-        if len(list_bin) % (config.PAILIER_KEY_SIZE//4) != 0:
-            raise ValueError("List size must be multiple of PAILIER_KEY_SIZE, as each element is the size of it")
-        return [list_bin[i:i+(config.PAILIER_KEY_SIZE//4)] for i in range(0, len(list_bin), config.PAILIER_KEY_SIZE//4)]
+        # if len(list_bin) % (config.PAILIER_KEY_SIZE//4) != 0:
+        #     raise ValueError("List size must be multiple of PAILIER_KEY_SIZE, as each element is the size of it")
+        vector = []
+        i = 0
+        while i < len(list_bin)-2027:
+            vector.append(list_bin[i:i+config.PAILIER_KEY_SIZE//4])
+            i += config.PAILIER_KEY_SIZE//4
+        public_key = pickle.loads(list_bin[i:])
+        return vector, public_key
 
 
     def handle_get_request(self, sock):
         """
         Handle request to send a file to the peer.
         """
-        self.download_work_list.put(sock)
         try:
             # Send the list of file names
             list_of_files = self.spacePIR.get_file_names()
             self.send_message('\n'.join(list_of_files), sock)
 
-            # Receive the vector)
+            # Receive the vector
             time.sleep(2)
             vector = self.receive_obj(sock)
-            vector = self.construct_list_from_bytes(vector)
+            vector, public_key = self.construct_list_from_bytes(vector)
             # Process the data and prepare the response (omitted for brevity)
-            response = self.spacePIR.get(vector)
+            response = self.spacePIR.get(vector, public_key)
 
             # Send the response
             print(response)

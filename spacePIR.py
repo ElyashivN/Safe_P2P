@@ -84,7 +84,7 @@ class SpacePIR:
         """
         return self.space
 
-    def get(self, A):
+    def get(self, A,public_key):
         """
         Multiplies each file in B by the corresponding encrypted element in A without decryption.
 
@@ -110,13 +110,15 @@ class SpacePIR:
                 # print(f"file_content)
                 file_int = int.from_bytes(file_content, byteorder='big')  # Convert entire binary to a large integer
 
+
             # Multiply the encrypted value directly by the file's integer content
             # Here, we assume that the multiplication operation is valid in the encrypted domain
             # bytedebug = base64.b64decode(encrypted_value)
             # encrypted_value = int.from_bytes(bytedebug, byteorder='big')
             encrypted_value = int.from_bytes(encrypted_value, byteorder='big')
-            # encrypted_file_int = Encryption.encrypt(public_key, file_int)
-            cumulative_result += encrypted_value * file_int  # encrypted_value is used directly
+            encrypted_file_int = Encryption.encrypt(public_key, file_int)
+            encrypted_file_int = int.from_bytes(encrypted_file_int, byteorder='big')
+            cumulative_result += encrypted_value * encrypted_file_int  # encrypted_value is used directly
             # encryption(pailier object)
 
         # Return the cumulative result of all multiplications

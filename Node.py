@@ -42,7 +42,6 @@ class Node(Peer):
         self.host = host
         self.port = port
         self.path = path
-        self.start_upload_download_thread()
 
     def store_Node(self, password, path=""):
         """
@@ -174,23 +173,16 @@ class Node(Peer):
                 i = find_index(file_list, name)
                 n = len(file_list)
                 v = self.construct_vector(i, n)
-                self.send_message(b''.join(v), sock)
+                self.send_message(v, sock)
                 time.sleep(2) #debug wait for 2 seconds to recieve
                 obj = self.receive_obj(sock)
 
-            if i == -1:
+            if i == -1: #if we failed to send
                 return None
 
-            print("downloaded object, processing it")
             decrypted_file = Encryption.decrypt(self.privateKey, obj)
-            print(decrypted_file)
             file_content_reverted = decrypted_file.decode()
-            # file_content_reverted = decrypted_file.to_bytes((decrypted_file.bit_length() + 7) // 8, byteorder='big',
-            #                                                 signed=True)
-            # print(file_content_reverted)
-            # print(file_content_reverted.decode("UTF-8"))
-            # print(file_content_reverted.decode("ascii"))
-            file = file_content_reverted.split(',')[1]
+            file = file_content_reverted.split(',')[1].encode()
             filename = os.path.join(self.path, f"{name}_{number}")
             with open(filename, 'wb') as handle:
                 handle.write(file)
@@ -199,53 +191,7 @@ class Node(Peer):
             print(f"Error downloading from peer: {e}")
             return None
 
-    def start_upload_download_thread(self):
-        self._upload_thread = threading.Thread(target=self.upload_work)
-        self._upload_thread.start()
-        self._download_thread = threading.Thread(target=self.download_work)
-        self._download_thread.start()
 
-    def download_work(self):
-        pass
-        # while True:
-        #     sock = self.download_work_list.get()  # Thread-safe pop equivalent for queue
-        #     try:
-        #         # Send the list of file names
-        #         list_of_files = self.spacePIR.get_file_names()
-        #         self.send_message('\n'.join(list_of_files), sock)
-        #
-        #         # Receive the vector
-        #         vector = self.receive_obj(sock)
-        #
-        #         # Process the data and prepare the response (omitted for brevity)
-        #         data = self.spacePIR.get(vector)
-        #
-        #         # Send the response
-        #         self.send_file(data, sock)
-        #     except Exception as e:
-        #         print(f"Error handling get request: {e}")
-
-    def upload_work(self):
-        print("Uploading work")
-        # while True:
-        #     # Block until an item is available in the queue
-        #     sock = self.upload_work_list.get()  # Automatically handles removing the item
-        #     print("we actually have work debug")
-        #     if self.spacePIR.is_allow_upload:
-        #         with self._upload_lock:
-        #             self.send_message(config.UPLOAD_APPROVED, sock)
-        #             try:
-        #                 file_name, _ = self.receive_file(sock)
-        #                 if file_name:
-        #                     self.spacePIR.add(file_name)
-        #                     self.send_message(config.UPLOADED_SUCCESS, sock)
-        #                 else:
-        #                     self.send_message(config.UPLOADED_FAILED, sock)
-        #             except Exception as e:
-        #                 print(f"Error uploading file: {e}")
-        #                 self.send_message(config.UPLOADED_FAILED, sock)
-        #     else:
-        #         self.send_message(config.UPLOAD_DENIED, sock)
 
     def add_DHT(self, other_DHT):
         return self.DHT.add_DHT(other_DHT)
@@ -260,4 +206,6 @@ class Node(Peer):
         # Encryption.encrypt(self.publicKey, 1)
         encrypted_vector = [Encryption.encrypt(self.publicKey, value) for value in vector]
         print(encrypted_vector)
-        return encrypted_vector
+        encrypted_vector.append(pickle.dumps(self.publicKey))
+        binary_vector = b"".join(encrypted_vector)
+        return binary_vector
