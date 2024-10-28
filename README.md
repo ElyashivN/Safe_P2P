@@ -9,7 +9,7 @@
 - [Main Features](#main-features)
 - [API Functions](#api-functions)
 
-###Requirements
+### Requirements
 To run the code, you’ll need:
 
 Python 3.8+
