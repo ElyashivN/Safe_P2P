@@ -13,3 +13,4 @@ UPLOADED_FAILED = b"UPLOADED_FAILED"
 DHT_SMALL = "cant upload because the DHT is too small for such a file. find friends"
 BUFFER_SIZE = 1024
 SUBFILE_SIZE = 20
+PAILIER_KEY_SIZE = 3072

@@ -249,7 +249,7 @@ class Peer:
             else:
                 print("npooooooooo sdebug")  # This should print if upload is denied
                 self.send_message(config.UPLOAD_DENIED, sock)
-    def construct_list_from_bytes(self, list_bin):
+    def construct_list_from_string(self, list_bin):
         """
         Converts a byte stream representing a list of file names (separated by newlines) into a Python list.
 
@@ -264,7 +264,8 @@ class Peer:
             decoded_str = list_bin.decode('utf-8')
 
             # Split the string by newline characters to get the list of file names
-            file_list = decoded_str.split('\n')
+            file_list = decoded_str.split('\n')# todo what if \n in one of the numbers encypted to us
+
 
             # Filter out any empty strings that might result from trailing newlines
             file_list = [file_name for file_name in file_list if file_name]
@@ -273,6 +274,12 @@ class Peer:
         except Exception as e:
             print(f"Error constructing list from bytes: {e}")
             return []
+
+    def construct_list_from_bytes(self, list_bin):
+        if len(list_bin) % (config.PAILIER_KEY_SIZE//4) != 0:
+            raise ValueError("List size must be multiple of PAILIER_KEY_SIZE, as each element is the size of it")
+        return [list_bin[i:i+(config.PAILIER_KEY_SIZE//4)] for i in range(0, len(list_bin), config.PAILIER_KEY_SIZE//4)]
+
 
     def handle_get_request(self, sock):
         """
@@ -293,7 +300,7 @@ class Peer:
 
             # Send the response
             print(response)
-            response = str(response)
+            # response = str(response)
             self.send_message(response, sock) #todo check for using send file
             print(f'response for download has been sent from node {self.peer_id} to peer {sock.getpeername()[1]}')
             # For simplicity, assuming response_file is prepared

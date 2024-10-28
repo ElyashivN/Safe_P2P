@@ -3,6 +3,7 @@ import os
 import socket
 import threading
 import time
+from typing import List
 
 import config
 from dht import DHT
@@ -153,6 +154,12 @@ class Node(Peer):
         except Exception as e:
             print(f"Error uploading to peer: {e}")
             return False
+    def vector_to_bytes(self, vector: List[bytes]) -> bytes:
+        """
+        make a vector into a bytes object.
+        :param vector: a list of bytes
+        :return: bytes object
+        """
 
 
     def download_from_peer(self, name, port, number, host="127.0.0.1"):
@@ -163,11 +170,11 @@ class Node(Peer):
             with socket.create_connection((host, port)) as sock:
                 self.send_message(config.REQUEST_FILE, sock)
                 file_list = self.receive_obj(sock)
-                file_list = self.construct_list_from_bytes(file_list)
+                file_list = self.construct_list_from_string(file_list)
                 i = find_index(file_list, name)
                 n = len(file_list)
                 v = self.construct_vector(i, n)
-                self.send_message('\n'.join(v), sock)
+                self.send_message(b''.join(v), sock)
                 time.sleep(2) #debug wait for 2 seconds to recieve
                 obj = self.receive_obj(sock)
 
@@ -177,12 +184,13 @@ class Node(Peer):
             print("downloaded object, processing it")
             decrypted_file = Encryption.decrypt(self.privateKey, obj)
             print(decrypted_file)
-            file_content_reverted = decrypted_file.to_bytes((decrypted_file.bit_length() + 7) // 8, byteorder='big',
-                                                            signed=True)
-            print(file_content_reverted)
-            print(file_content_reverted.decode("UTF-8"))
-            print(file_content_reverted.decode("ascii"))
-            file = decrypted_file.split(',')[1]
+            file_content_reverted = decrypted_file.decode()
+            # file_content_reverted = decrypted_file.to_bytes((decrypted_file.bit_length() + 7) // 8, byteorder='big',
+            #                                                 signed=True)
+            # print(file_content_reverted)
+            # print(file_content_reverted.decode("UTF-8"))
+            # print(file_content_reverted.decode("ascii"))
+            file = file_content_reverted.split(',')[1]
             filename = os.path.join(self.path, f"{name}_{number}")
             with open(filename, 'wb') as handle:
                 handle.write(file)
@@ -249,8 +257,7 @@ class Node(Peer):
         vector = [0] * n
         if 0 <= i < n:
             vector[i] = 1
-        print(self.privateKey)
-        Encryption.encrypt(self.publicKey, 1)
+        # Encryption.encrypt(self.publicKey, 1)
         encrypted_vector = [Encryption.encrypt(self.publicKey, value) for value in vector]
         print(encrypted_vector)
         return encrypted_vector

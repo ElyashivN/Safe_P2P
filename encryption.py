@@ -8,6 +8,8 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from phe import paillier
 import base64
 
+import config
+
 
 class Encryption:
     def __init__(self):
@@ -18,7 +20,7 @@ class Encryption:
         """
         Generate Paillier public and private keys for homomorphic encryption.
         """
-        public_key, private_key = paillier.generate_paillier_keypair()
+        public_key, private_key = paillier.generate_paillier_keypair(n_length=config.PAILIER_KEY_SIZE)
         return public_key, private_key
 
     @staticmethod
@@ -37,10 +39,7 @@ class Encryption:
         encrypted_data_bytes = encrypted_data.ciphertext(True).to_bytes(
         (encrypted_data.ciphertext(True).bit_length() + 7) // 8, byteorder='big')
 
-        # Return base64 encoded encrypted data
-        return base64.b64encode(encrypted_data_bytes).decode('utf-8')
-        # return encrypted_data_bytes.decode('utf-8')
-
+        return encrypted_data_bytes
     @staticmethod
     def decrypt(private_key, encrypted_data):
         """
@@ -50,15 +49,19 @@ class Encryption:
         :param encrypted_data: Encrypted data (base64-encoded string).
         :return: Decrypted integer.
         """
-        # number 1 problem: reach too big, and overflow the decrypt -> need to solve
-        # number 2 problem: the decryption works but provides uncoherent data.
-        # Decode base64 encrypted data
-        encrypted_data_bytes = base64.b64decode(encrypted_data)
-        ciphertext_int = int.from_bytes(encrypted_data_bytes, byteorder='big')
+        # # number 1 problem: reach too big, and overflow the decrypt -> need to solve
+        # # number 2 problem: the decryption works but provides uncoherent data.
+        # # Decode base64 encrypted data
+        ciphertext_int = int.from_bytes(encrypted_data, byteorder='big', signed=True)
         cipher_result = paillier.EncryptedNumber(private_key.public_key, ciphertext_int)
-        # Decrypt the ciphertext
+        # # Decrypt the ciphertext
         decrypted_data = private_key.decrypt(cipher_result)
-        return decrypted_data
+        decrypted_bytes = decrypted_data.to_bytes(
+        (decrypted_data.bit_length() + 7) // 8, byteorder='big')
+
+
+        return decrypted_bytes #test debugg!!!
+        # return decrypted_data
 
 
     # Store Paillier Private Key with Password-Based Encryption

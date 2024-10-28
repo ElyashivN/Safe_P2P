@@ -2,6 +2,8 @@ import base64
 import os
 import numpy as np
 
+from encryption import Encryption
+
 
 class SpacePIR:
     def __init__(self, max_capacity=1000, base_directory="path"):
@@ -110,11 +112,16 @@ class SpacePIR:
 
             # Multiply the encrypted value directly by the file's integer content
             # Here, we assume that the multiplication operation is valid in the encrypted domain
-            encrypted_value = int.from_bytes(encrypted_value.encode(), byteorder='big')
+            # bytedebug = base64.b64decode(encrypted_value)
+            # encrypted_value = int.from_bytes(bytedebug, byteorder='big')
+            encrypted_value = int.from_bytes(encrypted_value, byteorder='big')
+            # encrypted_file_int = Encryption.encrypt(public_key, file_int)
             cumulative_result += encrypted_value * file_int  # encrypted_value is used directly
             # encryption(pailier object)
 
         # Return the cumulative result of all multiplications
+        cumulative_result = cumulative_result.to_bytes(
+                (cumulative_result.bit_length() + 7) // 8, byteorder='big')
         return cumulative_result
 
 
