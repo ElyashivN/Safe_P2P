@@ -154,9 +154,9 @@ class TestNodeMessaging(unittest.TestCase):
             f.write("This is a test file.")
 
         # Upload the file from node1 to node2
-        result = self.node1.upload(file_path)
+        result, _ = self.node1.upload(file_path)
         print(result)
-        self.assertTrue(result, "File upload failed")
+        self.assertTrue(result != 0, "File upload failed")
 
         # Attempt to download the file back from node2
         download_success = self.node1.download("testfile.txt", 2, 1)

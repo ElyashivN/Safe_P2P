@@ -6,8 +6,7 @@ from dht import DHT
 import test_Node
 import unittest
 
-# Global variable to keep track of the latest port used
-latest_port = 5001  # Starting port
+
 
 
 class GUI:
@@ -18,7 +17,7 @@ class GUI:
         print("GUI initialized.")
 
         # Create a Canvas for background pattern
-        self.background_canvas = tk.Canvas(root, width=400, height=300, highlightthickness=0)
+        self.background_canvas = tk.Canvas(root, width=500, height=300, highlightthickness=0)
         self.background_canvas.pack(fill="both", expand=True)
 
         # Main Frame on top of Canvas
@@ -46,8 +45,13 @@ class GUI:
         add_dht_button.pack(pady=10)
 
         # Get List Files button
-        get_list_button = ttk.Button(button_frame, text="Get List Files", command=self.display_file_list, width=20)
+        get_list_button = ttk.Button(button_frame, text="Get List Files on node", command=self.display_file_list, width=20)
         get_list_button.pack(pady=10)
+
+        # Get List Files button
+        get_list_button = ttk.Button(button_frame, text="Get the files node uploaded", command=self.display_uploaded_files, width=20)
+        get_list_button.pack(pady=10)
+
 
         # Exit button
         exit_button = ttk.Button(button_frame, text="Exit", command=self.root.quit, width=20)
@@ -60,6 +64,23 @@ class GUI:
 
         self.node = node
 
+    def display_uploaded_files(self):
+        """open a ist of all the uploaded files"""
+        file_names = self.node.get_uploaded_files()
+        print(f"Retrieved file names: {file_names}")
+
+        # Create a new window to display the file names
+        file_list_window = tk.Toplevel(self.root)
+        file_list_window.title("List of Files uploaded")
+        file_list_window.geometry("300x200")
+
+        if file_names:
+            files_text = "\n".join(file_names)
+            label = tk.Label(file_list_window, text=files_text)
+        else:
+            label = tk.Label(file_list_window, text="No files available.")
+
+        label.pack(pady=10)
 
     def add_to_dht_action(self):
         """Open a new window with 'Add DHT' and 'Add Node' buttons."""
@@ -134,7 +155,8 @@ class GUI:
     def upload_file(self):
         file_path = filedialog.askopenfilename()
         if file_path:
-            self.node.upload(file_path)
+            n,k = self.node.upload(file_path)
+            print(file_path, n, k)
 
     def download_file(self):
         file_name = simpledialog.askstring("Download File", "Enter the name of the file to download:")
@@ -247,11 +269,15 @@ def load_node(root, node):  # todo not working yet
 def create_new_node(root, flag_load):
     if not flag_load:
         port = simpledialog.askinteger("Create New Node", "Enter the Port:")
+        host = simpledialog.askstring("Create New Node", "Enter the host"
+                                                         "(dont enter anything for local host 127.0.0.1:")
         peer_id = simpledialog.askstring("Create New Node", "Enter the Peer ID:")
-
+        if host == None:
+            node = Node(port, peer_id)
         # Create the node with the provided port and peer ID
-        node = Node(peer_id, port)
-        print(f"Created new Node with ID: {peer_id} on Port: {port}")
+        else:
+            node = Node(port, peer_id, host=host)
+        print(f"Created new Node with ID: {peer_id} on Port: {port} with host: {host}")
         main_window(root, node)
         return node
 

@@ -1,7 +1,10 @@
 import base64
 import os
+from typing import List
+
 import numpy as np
 
+import config
 from encryption import Encryption
 
 
@@ -84,7 +87,7 @@ class SpacePIR:
         """
         return self.space
 
-    def get(self, A,public_key):
+    def get(self, A,public_key)->List[bytes]:
         """
         Multiplies each file in B by the corresponding encrypted element in A without decryption.
 
@@ -100,7 +103,8 @@ class SpacePIR:
                 f"Size of vector A ({len(A)}) does not match the number of stored files ({len(self.space)}).")
 
         # Initialize cumulative result
-        cumulative_result = 0
+        chunks_len = config.MESSAGE_SIZE//config.BUFFER_SIZE
+        cumulative_result_vector = [0 for i in range(chunks_len)]
 
         # Step 2: Process each encrypted element in A and corresponding file in B
         for encrypted_value, (_, file_path) in zip(A, self.space):
@@ -108,6 +112,8 @@ class SpacePIR:
             with open(file_path, 'rb') as file:
                 file_content = file.read()
                 # print(f"file_content)
+                file_ints = [int.from_bytes(file_content[i:i+config.BUFFER_SIZE], byteorder='big') for i in range
+                (0, config.MESSAGE_SIZE,config.BUFFER_SIZE)]
                 file_int = int.from_bytes(file_content, byteorder='big')  # Convert entire binary to a large integer
 
 
@@ -116,15 +122,17 @@ class SpacePIR:
             # bytedebug = base64.b64decode(encrypted_value)
             # encrypted_value = int.from_bytes(bytedebug, byteorder='big')
             encrypted_value = int.from_bytes(encrypted_value, byteorder='big')
-            encrypted_file_int = Encryption.encrypt(public_key, file_int)
-            encrypted_file_int = int.from_bytes(encrypted_file_int, byteorder='big')
-            cumulative_result += encrypted_value * encrypted_file_int  # encrypted_value is used directly
-            # encryption(pailier object)
+            for i in range(chunks_len):
+                encrypted_file = Encryption.encrypt(public_key, file_ints[i])
+                encrypted_file_int = int.from_bytes(encrypted_file, byteorder='big')
+                cumulative_result_vector[i] += encrypted_value * encrypted_file_int  # encrypted_value is used directly
+                # encryption(pailier object)
 
         # Return the cumulative result of all multiplications
-        cumulative_result = cumulative_result.to_bytes(
-                (cumulative_result.bit_length() + 7) // 8, byteorder='big')
-        return cumulative_result
+        result_vector = [cumulative_result_vector[i].to_bytes(
+                    (cumulative_result_vector[i].bit_length() + 7) // 8, byteorder='big') for i in range(chunks_len)]
+
+        return result_vector
 
 
 

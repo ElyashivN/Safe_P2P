@@ -44,6 +44,7 @@ class Node(Peer):
         self.host = host
         self.port = port
         self.path = path
+        self.uploaded_files = list() #list of all uploaded files and their corresponding n, k
 
     def store_Node(self, password, path=""):
         """
@@ -55,6 +56,8 @@ class Node(Peer):
         with open(os.path.join(path, 'listfiles.pickle'), 'wb') as handle:
             pickle.dump(self.spacePIR.get_file_names(), handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+    def get_uploaded_files(self):
+        return self.uploaded_files
     def load_node(self, password, path=""):
         """
         Load the private key and DHT from storage.
@@ -125,8 +128,9 @@ class Node(Peer):
             if self.upload_to_peer(subfiles[i], node[config.PORT], node[config.HOST]):
                 i += 1
             if i >= n:
-                return True
-        return False
+                self.uploaded_files.append((file_path, n, k))
+                return n, k
+        return 0, 0
 
     def upload_to_peer(self, file, port, host="127.0.0.1"):
         """
@@ -185,14 +189,20 @@ class Node(Peer):
                 v = self.construct_vector(i, n)
                 self.send_message(v, sock)
                 time.sleep(2) #debug wait for 2 seconds to recieve
-                obj = self.receive_obj(sock)
+                list_chunks = list()
+                for i in range(config.MESSAGE_SIZE//config.BUFFER_SIZE):
+                    obj = self.receive_obj(sock)
+                    list_chunks.append(obj)
+
 
             if i == -1: #if we failed to send
                 return None
-
-            decrypted_file = Encryption.decrypt(self.privateKey, obj)
-            file_content_reverted = decrypted_file.decode()
-            file = file_content_reverted.split(',')[1].encode()
+            data = ""
+            for chunk in list_chunks:
+                decrypted_file = Encryption.decrypt(self.privateKey, obj)
+                file_content_reverted = decrypted_file.decode()
+                data+=file_content_reverted
+            file = data.split(',')[1].encode()
             filename = os.path.join(self.path, f"{name}_{number}")
             with open(filename, 'wb') as handle:
                 handle.write(file)

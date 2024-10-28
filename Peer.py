@@ -53,8 +53,7 @@ class Peer:
                 print("file sent successfully.")
         except Exception as e:
             print(f"Error sending file: {e}")
-        # finally:
-        #     sock.close()
+
 
     def send_message(self, message, sock):
         """
@@ -212,9 +211,8 @@ class Peer:
         finally:
             time.sleep(5)
             print(f"Peer {self.peer_id} stopped listening.")
-            # if sock.fileno() != -1:  # Check if socket is still open
-            #     sock.close()
-            # sock.close()
+            if sock.fileno() != -1:  # Check if socket is still open
+                sock.close()
 
     def handle_upload_request(self, sock):
         print("handle upload request debug")  # This prints, so we know we reach here
@@ -299,10 +297,11 @@ class Peer:
             vector = self.receive_obj(sock)
             vector, public_key = self.construct_list_from_bytes(vector)
             # Process the data and prepare the response (omitted for brevity)
-            response = self.spacePIR.get(vector, public_key)
+            response_vector = self.spacePIR.get(vector, public_key)
 
             # Send the response
-            self.send_message(response, sock) #todo check for using send file
+            for chunk in response_vector:
+                self.send_message(chunk, sock) #todo check for using send file
             print(f'response for download has been sent from node {self.peer_id} to peer {sock.getpeername()[1]}')
             # For simplicity, assuming response_file is prepared
         except Exception as e:
