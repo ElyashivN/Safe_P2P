@@ -1,10 +1,10 @@
-# Safe P2P File Management Tool - GUI Overview
+# Safe P2P File Management Tool - Overview
 
-This project is a decentralized file management system enabling secure file upload, download, and peer-to-peer (P2P) data management with privacy and redundancy. The graphical user interface (GUI) offers a straightforward way to interact with network nodes, Distributed Hash Table (DHT), and file handling features in this P2P network.
+**SAFE P2P** is a privacy-focused peer-to-peer (P2P) file-sharing network designed to allow secure file downloads without revealing specific data requests. Traditional P2P systems expose users to potential surveillance as network observers can monitor which files are being requested. SAFE P2P mitigates this risk to prevent data exposure. This approach supports secure data retrieval in decentralized networks, ideal for users requiring enhanced privacy and reliability.
 
 ## Table of Contents
 - [Requirements](#requirements)
-- [Setup and Running the Code](#setup-and-running-the-code)
+- [Setup](#setup-and-running-the-code)
 - [GUI Components](#gui-components)
 - [Main Features](#main-features)
 - [API Functions](#api-functions)
