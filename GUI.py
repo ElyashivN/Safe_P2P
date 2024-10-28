@@ -1,3 +1,4 @@
+import pickle
 import tkinter as tk
 from tkinter import filedialog, simpledialog, ttk
 import threading
@@ -113,15 +114,13 @@ class GUI:
         """Prompt the user for a port and call the add_DHT method of the DHT class with the specified port."""
 
         # Ask the user to enter the port for the new DHT
-        port = simpledialog.askinteger("Add DHT", "Enter the Port for the new DHT:")
+        dht_path = filedialog.askopenfilename()
+        if dht_path:
+            with open(dht_path, "rb") as file:
+                newDHT = pickle.load(file)
+            # Add the new DHT to the current node's DHT list
+            self.node.add_DHT(newDHT)
 
-        # Create a new DHT instance with the user-specified port
-        new_dht = DHT(port)
-
-        # Add the new DHT to the current node's DHT list
-        self.node.add_DHT(new_dht)
-
-        print(f"DHT with Port {port} added to the current node's DHT.")
 
     def display_file_list(self):
         """Display the list of file names retrieved from the SpacePIR instance."""

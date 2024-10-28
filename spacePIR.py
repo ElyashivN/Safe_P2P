@@ -103,7 +103,7 @@ class SpacePIR:
                 f"Size of vector A ({len(A)}) does not match the number of stored files ({len(self.space)}).")
 
         # Initialize cumulative result
-        chunks_len = config.MESSAGE_SIZE//config.BUFFER_SIZE
+        chunks_len = config.SUBFILE_SIZE//config.BUFFER_SIZE
         cumulative_result_vector = [0 for i in range(chunks_len)]
 
         # Step 2: Process each encrypted element in A and corresponding file in B
@@ -113,7 +113,7 @@ class SpacePIR:
                 file_content = file.read()
                 # print(f"file_content)
                 file_ints = [int.from_bytes(file_content[i:i+config.BUFFER_SIZE], byteorder='big') for i in range
-                (0, config.MESSAGE_SIZE,config.BUFFER_SIZE)]
+                (0, config.SUBFILE_SIZE,config.BUFFER_SIZE)]
                 file_int = int.from_bytes(file_content, byteorder='big')  # Convert entire binary to a large integer
 
 

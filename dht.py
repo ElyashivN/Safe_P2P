@@ -2,7 +2,7 @@ from datetime import datetime
 
 
 class DHT:
-    def __init__(self, port):
+    def __init__(self):
         """
         Initialize the DHT class, which represents a Distributed Hash Table. The DHT allows nodes
         to be added, retrieved, and removed. It also handles server operations using Kademlia.
@@ -25,7 +25,7 @@ class DHT:
 
         self._dht = {}  # Dictionary to keep track of local node information
 
-    async def get_and_add_node(self, port, node_id, socket):
+    async def get_and_add_node(self, port, node_id, host):
         """
         Add a node to the DHT, but do not overwrite existing nodes with the same ID. If the node already exists,
         return the current DHT without changes.
@@ -40,10 +40,10 @@ class DHT:
         """
         if node_id in self._dht:
             return self.get_dht()  # Return the current DHT without adding the node if it already exists
-        await self.add_node(port, node_id, socket)  # Add the node if it does not exist
+        await self.add_node(port, node_id, host)  # Add the node if it does not exist
         return self.get_dht()  # Return the updated DHT
 
-    async def add_node(self, port, node_id, socket):
+    async def add_node(self, port, node_id, host):
         """
         Add a node to both the local DHT and the Kademlia server. This method handles the creation of
         node metadata (such as timestamps) and ensures the data is serialized for storage in Kademlia.
@@ -56,7 +56,7 @@ class DHT:
         current_time = datetime.now()  # Capture the current time for timestamps
         node_data = {
             'port': port,
-            'socket': socket,
+            'host': host,
             'upload_time': current_time.isoformat(),  # Timestamp when the node was added
             'last_get': current_time.isoformat()  # Timestamp of the last retrieval
         }
@@ -87,9 +87,6 @@ class DHT:
         """
         # serialized_data = await self.server.get(node_id)  # Retrieve the serialized node data from Kademlia
         return self._dht[node_id]
-        # if serialized_data is not None:
-        #     return json.loads(serialized_data)  # Deserialize the node data if found
-        # return None  # Return None if the node does not exist
 
     def add_DHT(self, other_dht):
         """

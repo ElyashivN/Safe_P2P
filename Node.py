@@ -39,7 +39,7 @@ class Node(Peer):
         else:
             self.privateKey = private_key
             self.publicKey = private_key.public_key()
-        self.DHT = DHT(port)
+        self.DHT = DHT()
         self.fileHandler = FileHandler()
         self.host = host
         self.port = port
@@ -190,7 +190,7 @@ class Node(Peer):
                 self.send_message(v, sock)
                 time.sleep(2) #debug wait for 2 seconds to recieve
                 list_chunks = list()
-                for i in range(config.MESSAGE_SIZE//config.BUFFER_SIZE):
+                for i in range(config.SUBFILE_SIZE//config.BUFFER_SIZE):
                     obj = self.receive_obj(sock)
                     list_chunks.append(obj)
 
