@@ -1,5 +1,6 @@
 import os
 import pickle
+from phe import PaillierPublicKey
 import socket
 import threading
 import time
@@ -276,11 +277,12 @@ class Peer:
         #     raise ValueError("List size must be multiple of PAILIER_KEY_SIZE, as each element is the size of it")
         vector = []
         i = 0
-        while i < len(list_bin)-2027:
+        while i < len(list_bin)-config.KEY_SIZE:
             vector.append(list_bin[i:i+config.PAILIER_KEY_SIZE//4])
             i += config.PAILIER_KEY_SIZE//4
-        public_key = pickle.loads(list_bin[i:])
-        return vector, public_key
+        n_reconstructed = int.from_bytes(list_bin[i:],byteorder="big")
+        reconstructed_public_key = PaillierPublicKey(n=n_reconstructed)
+        return vector, reconstructed_public_key
 
 
     def handle_get_request(self, sock):
@@ -300,8 +302,6 @@ class Peer:
             response = self.spacePIR.get(vector, public_key)
 
             # Send the response
-            print(response)
-            # response = str(response)
             self.send_message(response, sock) #todo check for using send file
             print(f'response for download has been sent from node {self.peer_id} to peer {sock.getpeername()[1]}')
             # For simplicity, assuming response_file is prepared

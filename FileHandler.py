@@ -99,3 +99,4 @@ class FileHandler:
         # Write the original file to disk in binary mode
         with open(output_file, 'wb') as output:
             output.write(original_data)
+        return True

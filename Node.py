@@ -1,5 +1,7 @@
 import bisect
 import os
+import random
+import secrets
 import socket
 import threading
 import time
@@ -78,21 +80,31 @@ class Node(Peer):
         """
         dht = self.DHT.get_dht()
         part_files = []
+        SecurityRandom = 0  # a security random number for us to keep checking after we had already
+        # received enough parts to reconstruct the message, in order to make MITM attacks not able to guess our
+        # file based on when we stopped asking for new files for people
+        if (n-k)//2 > 0:
+            SecurityRandom = secrets.randbelow((n-k)//2)
         for key in dht.keys():
-            if len(part_files) >= k * Node.SAFETY_CONSTANT:
-                success = self.fileHandler.combine(part_files, n, k, os.path.join(self.path, name))
-                if success:
-                    for file in part_files:
-                        delete_file(file)
-                    return True
-                return False
-            info = dht[key]
-            port = info[config.PORT]
-            host = info[config.HOST]
-            file_name = self.download_from_peer(name, port, len(part_files), host)
-            if file_name is not None:
-                part_files.append(file_name)
-
+            try:
+                if len(part_files) >= k + SecurityRandom:
+                    print("downloaded enough, needs to reconstruct the message now")
+                    success = self.fileHandler.combine(part_files, n, k, os.path.join(self.path, name))
+                    if success:
+                        for file in part_files:
+                            delete_file(file)
+                        return True
+                    return False
+                info = dht[key]
+                port = info[config.PORT]
+                host = info[config.HOST]
+                file_name = self.download_from_peer(name, port, len(part_files), host)
+                if file_name is not None:
+                    part_files.append(file_name)
+                else:
+                    raise ValueError("error in getting filename and downloading from one of the files")
+            except Exception as e:
+                print(f"error downloading {name} from {host}: {e}")
         # If failed, delete all partial files
         for file in part_files:
             delete_file(file)
@@ -137,8 +149,6 @@ class Node(Peer):
                     return False
 
                 # Send the file
-                # self.send_message(file+",", sock)  # sending out file name todo if we change file handler to have name
-                # in top of file this is redundunt
                 self.send_file(file, sock)
                 print("file has been sent")
 
@@ -186,6 +196,7 @@ class Node(Peer):
             filename = os.path.join(self.path, f"{name}_{number}")
             with open(filename, 'wb') as handle:
                 handle.write(file)
+            print(f"filename has been recieved and it is :{filename}")
             return filename
         except Exception as e:
             print(f"Error downloading from peer: {e}")
@@ -205,7 +216,12 @@ class Node(Peer):
             vector[i] = 1
         # Encryption.encrypt(self.publicKey, 1)
         encrypted_vector = [Encryption.encrypt(self.publicKey, value) for value in vector]
-        print(encrypted_vector)
-        encrypted_vector.append(pickle.dumps(self.publicKey))
+        # n_bytes = pickle.dumps(self.publicKey)
+        n_bytes = self.publicKey.n.to_bytes((self.publicKey.n.bit_length() + 7) // 8, byteorder='big')
+        if len(n_bytes) < config.KEY_SIZE:
+            # Pad with leading zeros if it's less than 768 bytes
+            n_bytes = n_bytes.rjust(config.KEY_SIZE, b'\x00')
+        encrypted_vector.append(n_bytes)
+
         binary_vector = b"".join(encrypted_vector)
         return binary_vector
