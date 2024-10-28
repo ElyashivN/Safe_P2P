@@ -4,7 +4,7 @@
 
 ## Table of Contents
 - [Requirements](#requirements)
-- [Setup](#setup-and-running-the-code)
+- [Setup and running the code](#setup-and-running-the-code)
 - [GUI Components](#gui-components)
 - [Main Features](#main-features)
 - [API Functions](#api-functions)
@@ -29,6 +29,7 @@ pip install cryptography zfec phe
 ```
 
 ### Setup and Running the Code
+_To test the functionality of SAFE P2P, you must run multiple instances of the GUI in parallel. This setup allows you to simulate peer-to-peer interactions._
 
 1. **Clone the Repository**:
    First, download the project files from GitHub by running:
